@@ -84,7 +84,7 @@ dependencies {
     // Material 3 + Material 3 Expressive (1.4.x brings MaterialExpressiveTheme,
     // updated shapes/motion, loading indicators, button groups, etc.)
     implementation("androidx.compose.material3:material3:1.4.0")
-    implementation("androidx.compose.material.icons:material-icons-extended:1.7.4")
+    implementation("androidx.compose.material:material-icons-extended")
 
     // WorkManager for durable background extraction
     implementation("androidx.work:work-runtime-ktx:2.9.1")
