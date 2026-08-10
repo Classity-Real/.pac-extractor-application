@@ -1,0 +1,5 @@
+<resources>
+    <!-- Compose draws all UI itself; this just needs to be a NoActionBar theme
+         so the platform doesn't add its own app bar on top of the Compose one. -->
+    <style name="Theme.PExt" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>
