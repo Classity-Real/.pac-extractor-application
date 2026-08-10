@@ -1,6 +1,9 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
@@ -36,18 +39,12 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     buildFeatures {
         compose = true
     }
-    composeOptions {
-        // Kotlin 2.0.20 uses the Compose compiler Gradle plugin normally,
-        // pin explicitly here for clarity since that plugin isn't applied above.
-        kotlinCompilerExtensionVersion = "1.5.14"
-    }
+    // composeOptions.kotlinCompilerExtensionVersion is no longer needed —
+    // the org.jetbrains.kotlin.plugin.compose plugin (applied above) picks
+    // a compiler version that matches the Kotlin Gradle plugin automatically.
 
     packaging {
         resources {
@@ -62,6 +59,12 @@ android {
             // extracted to nativeLibraryDir at install time instead.
             useLegacyPackaging = true
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
     }
 }
 
