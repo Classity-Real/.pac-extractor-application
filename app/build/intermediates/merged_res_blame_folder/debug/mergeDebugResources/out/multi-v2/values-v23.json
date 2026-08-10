@@ -1,0 +1,19 @@
+{
+    "logs": [
+        {
+            "outputFile": "dev.classityreal.pext.app-mergeDebugResources-53:/values-v23/values-v23.xml",
+            "map": [
+                {
+                    "source": "/home/codespace/.gradle/caches/9.4.0/transforms/dc90ed6e52bb57bd88616236082f5e2a/transformed/work-runtime-2.9.1/res/values-v23/values-v23.xml",
+                    "from": {
+                        "startLines": "2,3",
+                        "startColumns": "4,4",
+                        "startOffsets": "55,121",
+                        "endColumns": "65,62",
+                        "endOffsets": "116,179"
+                    }
+                }
+            ]
+        }
+    ]
+}

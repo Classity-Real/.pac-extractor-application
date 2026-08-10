@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#FF3D6A5C</color>
+    <string name="app_name">PExt</string>
+    <style name="Theme.PExt" parent="android:Theme.Material.Light.NoActionBar"/>
+</resources>

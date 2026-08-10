@@ -1,0 +1,10 @@
+[
+    {
+        "merged": "dev.classityreal.pext.app-debug-55:/drawable_ic_launcher_foreground.xml.flat",
+        "source": "dev.classityreal.pext.app-main-57:/drawable/ic_launcher_foreground.xml"
+    },
+    {
+        "merged": "dev.classityreal.pext.app-debug-55:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "dev.classityreal.pext.app-main-57:/mipmap-anydpi-v26/ic_launcher.xml"
+    }
+]
