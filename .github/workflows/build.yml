@@ -1,4 +1,4 @@
-name: Build PExt App
+name: Android CI
 
 on:
   push:
