@@ -2,7 +2,6 @@ package dev.classityreal.pext.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.darkColorScheme
@@ -56,12 +55,12 @@ private val DarkColors = darkColorScheme(
  * App theme built on Material 3 Expressive: [MaterialExpressiveTheme] swaps in the
  * expressive shape/motion/typography defaults (bouncier spring-based MotionScheme,
  * the wider Expressive type ramp, new shape tokens) on top of a standard ColorScheme.
+ * Stable as of Material3 1.4.0 — no opt-in required.
  *
  * Dynamic color (Material You, Android 12+) is used when available so the app
  * matches the user's wallpaper-derived palette; otherwise falls back to the
  * static seed palette above.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun PExtTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
