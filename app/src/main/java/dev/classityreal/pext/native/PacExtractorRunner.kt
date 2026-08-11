@@ -18,7 +18,11 @@ class PacExtractorRunner(context: Context) {
 
     /** Extracts every partition from [pacPath] into [outDir]. [checkOnly] runs -c (validate, no write). */
     fun extractAll(pacPath: String, outDir: File, checkOnly: Boolean = false, onLine: (String) -> Unit = {}): Int {
-        outDir.mkdirs()
+        // Deliberately NOT outDir.mkdirs() — pacextractor creates outDir itself and
+        // errors ("error creating directory") if it already exists. Only ensure the
+        // parent exists so the binary has somewhere to create outDir under.
+        outDir.deleteRecursively()
+        outDir.parentFile?.mkdirs()
         val args = buildList {
             if (checkOnly) add("-c")
             add(pacPath)

@@ -70,7 +70,10 @@ class UnpacRunner(context: Context) {
 
     /** Extracts [names] (empty = all) from [pacPath] into [outDir]. */
     fun extract(pacPath: String, outDir: File, names: List<String> = emptyList(), onLine: (String) -> Unit = {}): Int {
-        outDir.mkdirs()
+        // See PacExtractorRunner.extractAll for why we don't outDir.mkdirs() here —
+        // same precaution in case unpac's own -d handling behaves the same way.
+        outDir.deleteRecursively()
+        outDir.parentFile?.mkdirs()
         val args = mutableListOf("-d", outDir.absolutePath, "extract", pacPath)
         args += names
         val (exitCode, lines) = tools.run(binary, args, onLine)
