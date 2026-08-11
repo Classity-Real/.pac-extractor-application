@@ -119,7 +119,10 @@ same `UnpacRunner`/`PacExtractorRunner` calls through it (or a
 the user backgrounding the app mid-run, which matters once you're routinely
 pulling multi-GB `super.img`s out of real firmware.
 
-# Current Status & Upcoming Features
-Source code is released! It will update later since I'm adding more features. 
-There's no guide how to compile it on GitHub actions if you're in the Mobile who wanted this APK
-(Since Every Actions is currently broken) As for PC you can go to building section
+## Credits
+The license section said you'll need to credit the people who made the binaries.. so heres one
+
+Massatriof16 - Binaries
+itsmax - Arm64 Binaries
+graytvhead / classity - tool
+github, claude - Assist
