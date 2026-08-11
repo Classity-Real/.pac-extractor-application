@@ -1,13 +1,16 @@
 package dev.classityreal.pext.service
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import dev.classityreal.pext.MainActivity
 
 /**
@@ -54,8 +57,22 @@ class ExtractionService : Service() {
     }
 
     private fun updateNotification(progressText: String) {
+        if (!hasNotificationPermission()) return
         val nm = getSystemService(NotificationManager::class.java)
         nm.notify(NOTIFICATION_ID, buildNotification(progressText))
+    }
+
+    /**
+     * API 33+ requires POST_NOTIFICATIONS to actually post a notification — without it the
+     * foreground service still runs fine, it just posts no visible notification. Below API 33
+     * the permission doesn't exist, so it's always considered granted.
+     */
+    private fun hasNotificationPermission(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
+        return ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.POST_NOTIFICATIONS
+        ) == PackageManager.PERMISSION_GRANTED
     }
 
     private fun ensureChannel() {

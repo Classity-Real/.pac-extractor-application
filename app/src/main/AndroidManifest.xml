@@ -4,6 +4,13 @@
     <!-- No broad storage permissions needed: we use SAF (ACTION_OPEN_DOCUMENT /
          ACTION_OPEN_DOCUMENT_TREE), which grants scoped access without them. -->
 
+    <!-- Required on API 33+ to post the foreground-service notification from
+         ExtractionService. Without it granted, the service still runs in the
+         foreground fine — the notification just silently doesn't show — but the
+         manifest declaration is what makes that runtime permission requestable
+         at all, and is what lint's NotificationPermission check requires. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:allowBackup="false"
         android:extractNativeLibs="true"
