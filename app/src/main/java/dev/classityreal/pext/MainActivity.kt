@@ -15,6 +15,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import dev.classityreal.pext.ui.PacViewModel
@@ -30,11 +31,21 @@ import dev.classityreal.pext.ui.screens.PartitionListScreen
 import dev.classityreal.pext.ui.screens.SelectMultipleFilesScreen
 import dev.classityreal.pext.ui.theme.PExtTheme
 
-/** Single-pane content stops growing past this width — on tablets/foldables the
- *  rest of the screen stays as breathing room instead of every list/button
- *  stretching edge-to-edge. 600dp lines up with Material's compact/medium
- *  window size class boundary. */
-private val MaxContentWidth = 600.dp
+/** Single-pane content (Home, progress screens, etc.) stops growing past this width —
+ *  on tablets/foldables the rest of the screen stays as breathing room instead of every
+ *  button/status text stretching edge-to-edge. 600dp lines up with Material's
+ *  compact/medium window size class boundary. */
+private val NarrowContentMaxWidth = 600.dp
+
+/** The two grid screens (partition list, batch file list) get much more room instead —
+ *  otherwise capping at 600dp would only ever leave space for ~2 grid columns even on a
+ *  large tablet. 1200dp is a generous ceiling, not a real constraint on any current device. */
+private val GridContentMaxWidth = 1200.dp
+
+private fun maxContentWidthFor(screen: Screen): Dp = when (screen) {
+    is Screen.SelectPartitions, is Screen.SelectMultipleFiles -> GridContentMaxWidth
+    else -> NarrowContentMaxWidth
+}
 
 class MainActivity : ComponentActivity() {
 
@@ -84,9 +95,11 @@ class MainActivity : ComponentActivity() {
                     val screen by viewModel.screen.collectAsState()
 
                     // Center a max-width column so phones stay full-width but tablets/
-                    // foldables don't stretch every button and list edge-to-edge.
+                    // foldables don't stretch every button and list edge-to-edge — except
+                    // the two grid screens, which get much more room to actually show
+                    // multiple columns on a tablet (see maxContentWidthFor).
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-                        Box(modifier = Modifier.widthIn(max = MaxContentWidth).fillMaxSize()) {
+                        Box(modifier = Modifier.widthIn(max = maxContentWidthFor(screen)).fillMaxSize()) {
                             when (val s = screen) {
                                 is Screen.Home -> HomeScreen(
                                     onPickFile = { pickPacFile.launch(arrayOf("*/*")) },
