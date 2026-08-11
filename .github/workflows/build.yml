@@ -1,11 +1,19 @@
-name: Android CI
+name: Build PExt-Application
 
+# Manual trigger only — go to the Actions tab, click "Run workflow", and fill
+# in a version + your own changelog text. That build then gets published as
+# a GitHub Release with the APK attached.
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version/tag (e.g. v1.2.0)'
+        required: true
+        type: string
+      changelog:
+        description: 'Changelog for this release (shown as the release notes)'
+        required: true
+        type: string
 
 env:
   # Pinned to match the Gradle version verified working in Codespaces (sdkman's
@@ -14,7 +22,7 @@ env:
   GRADLE_VERSION: "9.4.0"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -86,3 +94,18 @@ jobs:
           name: unit-test-report
           path: app/build/reports/tests/testDebugUnitTest/
           if-no-files-found: ignore
+
+      # Only reached if lint/tests/build above all succeeded. Creates the tag if it
+      # doesn't already exist, and uses the changelog text you typed into the
+      # "Run workflow" form as the release notes — no auto-generated notes here.
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_NOTES: ${{ inputs.changelog }}
+        run: |
+          printf '%s\n' "$RELEASE_NOTES" > release_notes.md
+          gh release create "$RELEASE_VERSION" \
+            app/build/outputs/apk/debug/app-debug.apk \
+            --title "$RELEASE_VERSION" \
+            --notes-file release_notes.md
