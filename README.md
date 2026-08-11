@@ -9,6 +9,7 @@ Requirements:
  - Arm64 Device (The Binaries is built for Arm64)
  - At-least 32gb on storage (Depending on the size of the .pac)
  - Compiled Apk
+
 Installation:
 Pre-Step: If your in PC. Forward it to your device
 1. Go to Downloads > app-debug.apk > Install
