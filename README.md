@@ -12,6 +12,11 @@ A Tool for android made to inspect and extract partitions (`boot.img`, `vendor_b
 `super.img`, modem blobs, etc.) out of Unisoc/Spreadtrum `.pac` firmware
 packages.
 
+# License
+You're allowed to freely distribute and share it to people who need it and can modify the code but in one exception
+YOU WILL STILL NEED TO CREDIT PEOPLE WHO MADE THE BINARIES AND THE TOOL ITSELF! Massatriof or maxiee made the binaries 
+and i made the tool, any stolen forks will be called "FAKE" or "CLONE"
+
 # How to install
 Requirements:
  - Arm64 Device (The Binaries is built for Arm64)
