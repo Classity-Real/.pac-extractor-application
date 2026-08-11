@@ -2,4 +2,9 @@
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/ic_launcher_background" />
     <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <!-- API 33+: lets Material You themed-icon launchers recolor the icon to match
+         the user's wallpaper palette, same as system app icons do. The system uses
+         this as a silhouette/mask, so pointing it at the existing foreground (rather
+         than a dedicated flat asset) is fine — only its alpha shape is used. -->
+    <monochrome android:drawable="@drawable/ic_launcher_foreground" />
 </adaptive-icon>

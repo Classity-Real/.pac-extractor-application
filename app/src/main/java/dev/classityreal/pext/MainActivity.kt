@@ -7,11 +7,16 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import dev.classityreal.pext.ui.PacViewModel
 import dev.classityreal.pext.ui.Screen
 import dev.classityreal.pext.ui.screens.BatchDoneScreen
@@ -24,6 +29,12 @@ import dev.classityreal.pext.ui.screens.LoadingScreen
 import dev.classityreal.pext.ui.screens.PartitionListScreen
 import dev.classityreal.pext.ui.screens.SelectMultipleFilesScreen
 import dev.classityreal.pext.ui.theme.PExtTheme
+
+/** Single-pane content stops growing past this width — on tablets/foldables the
+ *  rest of the screen stays as breathing room instead of every list/button
+ *  stretching edge-to-edge. 600dp lines up with Material's compact/medium
+ *  window size class boundary. */
+private val MaxContentWidth = 600.dp
 
 class MainActivity : ComponentActivity() {
 
@@ -65,53 +76,60 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         setContent {
             PExtTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     val screen by viewModel.screen.collectAsState()
 
-                    when (val s = screen) {
-                        is Screen.Home -> HomeScreen(
-                            onPickFile = { pickPacFile.launch(arrayOf("*/*")) },
-                            onPickFromList = { pickMultiplePacFiles.launch(arrayOf("*/*")) }
-                        )
+                    // Center a max-width column so phones stay full-width but tablets/
+                    // foldables don't stretch every button and list edge-to-edge.
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                        Box(modifier = Modifier.widthIn(max = MaxContentWidth).fillMaxSize()) {
+                            when (val s = screen) {
+                                is Screen.Home -> HomeScreen(
+                                    onPickFile = { pickPacFile.launch(arrayOf("*/*")) },
+                                    onPickFromList = { pickMultiplePacFiles.launch(arrayOf("*/*")) }
+                                )
 
-                        is Screen.Loading -> LoadingScreen()
+                                is Screen.Loading -> LoadingScreen()
 
-                        is Screen.SelectPartitions -> PartitionListScreen(
-                            entries = s.entries,
-                            viewModel = viewModel,
-                            onExtractClick = { pickOutputTree.launch(null) }
-                        )
+                                is Screen.SelectPartitions -> PartitionListScreen(
+                                    entries = s.entries,
+                                    viewModel = viewModel,
+                                    onExtractClick = { pickOutputTree.launch(null) }
+                                )
 
-                        is Screen.Extracting -> ExtractingScreen(engine = s.engine, lastLine = s.lastLine)
+                                is Screen.Extracting -> ExtractingScreen(engine = s.engine, lastLine = s.lastLine)
 
-                        is Screen.Done -> DoneScreen(onDoneClick = { viewModel.reset() })
+                                is Screen.Done -> DoneScreen(onDoneClick = { viewModel.reset() })
 
-                        is Screen.SelectMultipleFiles -> SelectMultipleFilesScreen(
-                            files = s.files,
-                            freeSpaceBytes = viewModel.freeSpaceBytes(),
-                            onExtractClick = { pickOutputTree.launch(null) }
-                        )
+                                is Screen.SelectMultipleFiles -> SelectMultipleFilesScreen(
+                                    files = s.files,
+                                    freeSpaceBytes = viewModel.freeSpaceBytes(),
+                                    onExtractClick = { pickOutputTree.launch(null) }
+                                )
 
-                        is Screen.BatchExtracting -> BatchExtractingScreen(
-                            currentIndex = s.currentIndex,
-                            total = s.total,
-                            currentName = s.currentName,
-                            lastLine = s.lastLine
-                        )
+                                is Screen.BatchExtracting -> BatchExtractingScreen(
+                                    currentIndex = s.currentIndex,
+                                    total = s.total,
+                                    currentName = s.currentName,
+                                    lastLine = s.lastLine
+                                )
 
-                        is Screen.BatchDone -> BatchDoneScreen(
-                            folderNames = s.folderNames,
-                            onDoneClick = { viewModel.reset() }
-                        )
+                                is Screen.BatchDone -> BatchDoneScreen(
+                                    folderNames = s.folderNames,
+                                    onDoneClick = { viewModel.reset() }
+                                )
 
-                        is Screen.Error -> ErrorScreen(
-                            message = s.message,
-                            detail = s.detail,
-                            onRetryClick = { viewModel.reset() }
-                        )
+                                is Screen.Error -> ErrorScreen(
+                                    message = s.message,
+                                    detail = s.detail,
+                                    onRetryClick = { viewModel.reset() }
+                                )
+                            }
+                        }
                     }
                 }
             }

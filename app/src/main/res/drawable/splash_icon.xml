@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Same open-box/extraction glyph as the launcher's adaptive-icon foreground,
+         kept as a separate copy since the splash icon isn't clipped to the adaptive
+         icon mask and benefits from its own centered, unclipped viewport. -->
+    <group
+        android:name="splash_icon_group"
+        android:pivotX="54"
+        android:pivotY="54">
+        <path
+            android:name="splash_icon_fill"
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M54,28 L80,40 L80,68 L54,80 L28,68 L28,40 Z" />
+        <path
+            android:fillColor="#FFBFF0DC"
+            android:fillAlpha="0.55"
+            android:pathData="M54,28 L80,40 L54,52 L28,40 Z" />
+        <path
+            android:fillColor="#FF3D6A5C"
+            android:pathData="M52,52 L56,52 L56,76 L52,76 Z" />
+    </group>
+</vector>

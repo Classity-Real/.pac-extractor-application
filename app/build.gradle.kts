@@ -14,8 +14,11 @@ android {
         applicationId = "dev.classityreal.pext"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        // Overridden from CI via -PappVersionCode=… -PappVersionName=… (see build.yml) so
+        // the "version" you type into the workflow's manual trigger actually becomes the
+        // installed app's version, instead of this hardcoded fallback.
+        versionCode = (project.findProperty("appVersionCode") as String?)?.toIntOrNull() ?: 1
+        versionName = (project.findProperty("appVersionName") as String?) ?: "0.1.0"
 
         vectorDrawables.useSupportLibrary = true
 
@@ -32,6 +35,10 @@ android {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // No dedicated release keystore yet — sign with the debug key so a
+            // "release" build type is still directly installable for testing.
+            // Swap this for a real signingConfig before shipping to actual users.
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
@@ -81,8 +88,9 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
 
-    // Material 3 + Material 3 Expressive (1.4.x brings MaterialExpressiveTheme,
-    // updated shapes/motion, loading indicators, button groups, etc.)
+    // Material 3 (stable). Material 3 Expressive — MaterialExpressiveTheme, bouncy
+    // MotionScheme — is intentionally NOT used: as of 1.4.0 those APIs are still
+    // alpha-only (material3 1.5.0-alpha+), not shipped in a stable release yet.
     implementation("androidx.compose.material3:material3:1.4.0")
     implementation("androidx.compose.material:material-icons-extended")
 
@@ -91,6 +99,10 @@ dependencies {
 
     // Document tree / SAF helpers
     implementation("androidx.documentfile:documentfile:1.0.1")
+
+    // Consistent animated splash screen back to minSdk, not just Android 12+
+    // (where the platform SplashScreen API exists natively).
+    implementation("androidx.core:core-splashscreen:1.0.1")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

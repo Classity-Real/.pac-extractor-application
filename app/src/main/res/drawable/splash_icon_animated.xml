@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:drawable="@drawable/splash_icon">
+
+    <target android:name="splash_icon_group">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:duration="500"
+                android:interpolator="@android:interpolator/overshoot">
+                <propertyValuesHolder android:propertyName="scaleX">
+                    <keyframe android:fraction="0" android:value="0.4" />
+                    <keyframe android:fraction="1" android:value="1.0" />
+                </propertyValuesHolder>
+                <propertyValuesHolder android:propertyName="scaleY">
+                    <keyframe android:fraction="0" android:value="0.4" />
+                    <keyframe android:fraction="1" android:value="1.0" />
+                </propertyValuesHolder>
+            </objectAnimator>
+        </aapt:attr>
+    </target>
+
+    <target android:name="splash_icon_fill">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="fillAlpha"
+                android:valueFrom="0"
+                android:valueTo="1"
+                android:duration="350"
+                android:interpolator="@android:interpolator/linear" />
+        </aapt:attr>
+    </target>
+</animated-vector>
