@@ -20,12 +20,14 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
 
-      # Works even if gradlew isn't committed to the repo yet
+      # Auto-detects and uses the committed Gradle wrapper if present; otherwise
+      # provisions a system Gradle install as a fallback. Also handles the
+      # Gradle dependency/build cache between runs.
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
