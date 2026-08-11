@@ -123,6 +123,9 @@ pulling multi-GB `super.img`s out of real firmware.
 The license section said you'll need to credit the people who made the binaries.. so heres one
 
 Massatriof16 - Binaries
+
 itsmax - Arm64 Binaries
+
 graytvhead / classity - tool
+
 github, claude - Assist
