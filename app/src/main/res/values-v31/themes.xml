@@ -1,0 +1,18 @@
+<resources>
+    <!-- API 31+ override of the base Theme.PExt.Starting in values/themes.xml. Style
+         resources aren't merged across qualifier directories — this whole style
+         replaces the base one on API 31+, so every item from the base version is
+         repeated here, just with a dynamic background instead of a static one.
+
+         system_accent1_100 is a public framework color (android.R.color) derived
+         from the user's wallpaper by the system's Material You color extraction —
+         the same mechanism dynamicLightColorScheme()/dynamicDarkColorScheme() use
+         inside Compose (see ui/theme/Theme.kt). The OS resolves it to the correct
+         light/dark tone on its own; no separate night-mode handling needed here. -->
+    <style name="Theme.PExt.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@android:color/system_accent1_100</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon_animated</item>
+        <item name="windowSplashScreenAnimationDuration">600</item>
+        <item name="postSplashScreenTheme">@style/Theme.PExt</item>
+    </style>
+</resources>

@@ -7,7 +7,11 @@
          first frame. Extends the AndroidX SplashScreen compat theme so it looks and
          animates the same way on every supported version, not just Android 12+ where
          the platform SplashScreen API exists natively. postSplashScreenTheme is what
-         the library swaps the window back to once Compose is ready to draw. -->
+         the library swaps the window back to once Compose is ready to draw.
+
+         This is the fallback background (static app-icon teal) for API <31, where
+         Material You dynamic color doesn't exist. See values-v31/themes.xml for the
+         wallpaper-derived override used on API 31+. -->
     <style name="Theme.PExt.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/ic_launcher_background</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon_animated</item>

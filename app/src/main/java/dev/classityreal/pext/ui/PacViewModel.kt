@@ -115,6 +115,10 @@ class PacViewModel(app: Application) : AndroidViewModel(app) {
                         }
                     }
                     SafBridge.copyDirToTree(app, outDir, outputTreeUri)
+                    // Fully extracted and copied out to the user's chosen folder —
+                    // nothing left in app cache is needed anymore, so clear it now
+                    // instead of leaving it sitting there until the user taps Done.
+                    workDir.deleteRecursively()
                     outputTreeUri
                 }
             }
@@ -186,6 +190,9 @@ class PacViewModel(app: Application) : AndroidViewModel(app) {
                         batchWorkDir.deleteRecursively()
                     }
 
+                    // All firmwares extracted and copied out — nothing left in app
+                    // cache is needed, clear it now rather than waiting for reset().
+                    workDir.deleteRecursively()
                     createdFolderNames
                 }
             }

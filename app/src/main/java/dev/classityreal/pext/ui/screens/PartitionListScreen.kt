@@ -9,8 +9,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material3.Card
@@ -93,9 +95,14 @@ fun PartitionListScreen(
                 )
             }
 
-            LazyColumn(
+            // GridCells.Adaptive gives 1 column on phone-width screens (looks identical
+            // to the old plain list) and automatically adds columns as width grows past
+            // ~260dp per cell — i.e. a real grid on tablets, without a manual breakpoint.
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(minSize = 260.dp),
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(entries, key = { it.name }) { entry ->
@@ -106,7 +113,7 @@ fun PartitionListScreen(
                         onCheckedChange = { viewModel.toggleEntry(entry.name) }
                     )
                 }
-                item { Spacer(Modifier.height(64.dp)) }
+                item(span = { GridItemSpan(maxLineSpan) }) { Spacer(Modifier.height(64.dp)) }
             }
         }
     }
