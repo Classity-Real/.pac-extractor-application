@@ -1,19 +1,36 @@
-name: Build PExt-Application
+name: Build PExt Application
 
-# Manual trigger only — go to the Actions tab, click "Run workflow", and fill
-# in a version + your own changelog text. That build then gets published as
-# a GitHub Release with the APK attached.
+# Manual trigger only — go to the Actions tab, click "Run workflow", and fill in:
+#  - version: becomes both the release tag AND the app's versionName (e.g. what
+#    shows in Settings > Apps > PExt), replacing the old hardcoded "0.1.0".
+#  - changelog: your own release notes text, used as-is — nothing auto-generated.
+#  - build_type: debug or release (release is signed with the debug key for now,
+#    since there's no dedicated release keystore — see app/build.gradle.kts).
+#  - apk_name: base filename for the built APK, e.g. "PExt" -> "PExt-v1.2.0.apk".
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version/tag (e.g. v1.2.0)'
+        description: 'Version (e.g. v1.2.0) — becomes the release tag AND the app versionName'
         required: true
         type: string
       changelog:
-        description: 'Changelog for this release (shown as the release notes)'
+        description: 'Changelog for this release (used as-is as the release notes)'
         required: true
         type: string
+      build_type:
+        description: 'Build type'
+        required: true
+        type: choice
+        options:
+          - debug
+          - release
+        default: debug
+      apk_name:
+        description: 'Base filename for the output APK (without version/extension)'
+        required: true
+        type: string
+        default: 'PExt'
 
 env:
   # Pinned to match the Gradle version verified working in Codespaces (sdkman's
@@ -63,20 +80,47 @@ jobs:
       - name: Verify Gradle install
         run: gradle --version
 
+      # versionCode must be a monotonically increasing integer — the Actions run
+      # number does that for free without needing to parse "v1.2.0" into a number.
+      - name: Compute version properties
+        id: version
+        run: |
+          echo "version_name=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          echo "version_code=${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
       - name: Run Android Lint
-        run: gradle lintDebug --no-daemon
+        run: >
+          gradle lint${{ inputs.build_type == 'release' && 'Release' || 'Debug' }} --no-daemon
+          -PappVersionName=${{ steps.version.outputs.version_name }}
+          -PappVersionCode=${{ steps.version.outputs.version_code }}
 
       - name: Run unit tests
-        run: gradle testDebugUnitTest --no-daemon
+        run: >
+          gradle test${{ inputs.build_type == 'release' && 'Release' || 'Debug' }}UnitTest --no-daemon
+          -PappVersionName=${{ steps.version.outputs.version_name }}
+          -PappVersionCode=${{ steps.version.outputs.version_code }}
 
-      - name: Build debug APK
-        run: gradle assembleDebug --no-daemon
+      - name: Build ${{ inputs.build_type }} APK
+        run: >
+          gradle assemble${{ inputs.build_type == 'release' && 'Release' || 'Debug' }} --no-daemon
+          -PappVersionName=${{ steps.version.outputs.version_name }}
+          -PappVersionCode=${{ steps.version.outputs.version_code }}
 
-      - name: Upload debug APK
+      # Rename the built APK to <apk_name>-<version>.apk so both artifact uploads
+      # and the release asset use a name you actually chose, not app-debug.apk.
+      - name: Rename output APK
+        id: apk
+        run: |
+          SRC="app/build/outputs/apk/${{ inputs.build_type }}/app-${{ inputs.build_type }}.apk"
+          OUT_NAME="${{ inputs.apk_name }}-${{ inputs.version }}.apk"
+          cp "$SRC" "$OUT_NAME"
+          echo "apk_path=$OUT_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: pext-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: ${{ inputs.apk_name }}-${{ inputs.version }}
+          path: ${{ steps.apk.outputs.apk_path }}
           if-no-files-found: warn
 
       - name: Upload lint report
@@ -92,7 +136,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: unit-test-report
-          path: app/build/reports/tests/testDebugUnitTest/
+          path: app/build/reports/tests/test${{ inputs.build_type == 'release' && 'Release' || 'Debug' }}UnitTest/
           if-no-files-found: ignore
 
       # Only reached if lint/tests/build above all succeeded. Creates the tag if it
@@ -106,6 +150,6 @@ jobs:
         run: |
           printf '%s\n' "$RELEASE_NOTES" > release_notes.md
           gh release create "$RELEASE_VERSION" \
-            app/build/outputs/apk/debug/app-debug.apk \
+            "${{ steps.apk.outputs.apk_path }}" \
             --title "$RELEASE_VERSION" \
             --notes-file release_notes.md
