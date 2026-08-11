@@ -7,6 +7,12 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
+env:
+  # Pinned to match the Gradle version verified working in Codespaces (sdkman's
+  # default), so Actions and local dev builds against the exact same toolchain
+  # instead of whatever setup-gradle auto-detects.
+  GRADLE_VERSION: "9.4.0"
+
 permissions:
   contents: read
 
@@ -25,41 +31,38 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      # Auto-detects and uses the committed Gradle wrapper if present; otherwise
-      # provisions a system Gradle install as a fallback. Also handles the
-      # Gradle dependency/build cache between runs.
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+      - name: Cache Gradle distribution and dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle-dist
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ env.GRADLE_VERSION }}-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ env.GRADLE_VERSION }}-${{ runner.os }}-
 
-      - name: Make gradlew executable (if present)
+      - name: Download and install Gradle ${{ env.GRADLE_VERSION }}
         run: |
-          if [ -f "./gradlew" ]; then
-            chmod +x ./gradlew
+          if [ ! -d "$HOME/.gradle-dist/gradle-${GRADLE_VERSION}" ]; then
+            mkdir -p "$HOME/.gradle-dist"
+            curl -fsSL -o /tmp/gradle.zip "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip"
+            unzip -q /tmp/gradle.zip -d "$HOME/.gradle-dist"
+            rm /tmp/gradle.zip
           fi
+          echo "$HOME/.gradle-dist/gradle-${GRADLE_VERSION}/bin" >> "$GITHUB_PATH"
+
+      - name: Verify Gradle install
+        run: gradle --version
 
       - name: Run Android Lint
-        run: |
-          if [ -f "./gradlew" ]; then
-            ./gradlew lint --no-daemon
-          else
-            gradle lint --no-daemon
-          fi
+        run: gradle lintDebug --no-daemon
 
       - name: Run unit tests
-        run: |
-          if [ -f "./gradlew" ]; then
-            ./gradlew testDebugUnitTest --no-daemon
-          else
-            gradle testDebugUnitTest --no-daemon
-          fi
+        run: gradle testDebugUnitTest --no-daemon
 
       - name: Build debug APK
-        run: |
-          if [ -f "./gradlew" ]; then
-            ./gradlew assembleDebug --no-daemon
-          else
-            gradle assembleDebug --no-daemon
-          fi
+        run: gradle assembleDebug --no-daemon
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
