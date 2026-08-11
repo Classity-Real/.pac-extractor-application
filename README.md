@@ -1,3 +1,11 @@
+## PLEASE READ FOR ANDROID USERS!!
+Starting in 2027*, a silent update, nonconsensually pushed by Google, 
+will block every Android app whose developer hasn't registered with Google, 
+signed their contract, paid up, and handed over government ID.
+
+For more information go to this link
+https://keepandroidopen.org/
+
 ![codenation](https://github.com/Classity-Real/.pac-extractor-application/blob/main/Images/Banner.jpg?raw=true)
 # .PExt — "Extracting Unisoc Firmware since 2026!"
 A Tool for android made to inspect and extract partitions (`boot.img`, `vendor_boot.img`,
