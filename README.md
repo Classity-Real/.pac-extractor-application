@@ -11,6 +11,7 @@ Requirements:
  - Compiled Apk
 
 Installation:
+
 Pre-Step: If your in PC. Forward it to your device
 1. Go to Downloads > app-debug.apk > Install
 2. Wait for it to complete and enjoy!
