@@ -1,13 +1,20 @@
 ![codenation](https://github.com/Classity-Real/.pac-extractor-application/blob/main/Images/Banner.jpg?raw=true)
-
-# PExt — Unisoc .pac Extractor (Android)
-
-Android app to inspect and extract partitions (`boot.img`, `vendor_boot.img`,
+# .PExt — "Extracting Unisoc Firmware since 2026!"
+A Tool for android made to inspect and extract partitions (`boot.img`, `vendor_boot.img`,
 `super.img`, modem blobs, etc.) out of Unisoc/Spreadtrum `.pac` firmware
-packages, built with Kotlin + Jetpack Compose + **Material 3 Expressive**.
+packages.
+
+# How to install
+Requirements:
+ - Arm64 Device (The Binaries is built for Arm64)
+ - At-least 32gb on storage (Depending on the size of the .pac)
+ - Compiled Apk
+Installation:
+Pre-Step: If your in PC. Forward it to your device
+1. Go to Downloads > app-debug.apk > Install
+2. Wait for it to complete and enjoy!
 
 ## How extraction actually works
-
 The app ships two prebuilt `arm64-v8a` command-line tools —
 **`unpac`** and **`pacextractor`** — and shells out to them via
 `ProcessBuilder` rather than parsing the `.pac` format itself:
@@ -25,7 +32,6 @@ The app ships two prebuilt `arm64-v8a` command-line tools —
   `context.applicationInfo.nativeLibraryDir` and runs them.
 
 ### Why the binaries are named `libunpac.so` / `libpacextractor.so`
-
 They're real executables (they have a `PT_INTERP` segment pointing at
 `/system/bin/linker64`), **not** JNI shared libraries — don't pass them to
 `System.loadLibrary()`/`dlopen()`, only run them via `ProcessBuilder` as the
@@ -44,7 +50,6 @@ Two build settings make this actually work:
   the only build we have of these two binaries.
 
 ### `unpac list` output parsing — needs verification
-
 `UnpacRunner.list()` parses `unpac`'s stdout by regex-matching
 `name = "..."`, `id = "..."`, `type = ...`, `size = 0x...` tokens per line,
 inferred from the binary's own embedded format strings rather than from a
@@ -55,7 +60,6 @@ file before shipping**, and adjust the regexes in `UnpacRunner.kt` if a
 field comes out wrong.
 
 ## Project layout
-
 ```
 app/src/main/jniLibs/arm64-v8a/
   libunpac.so, libpacextractor.so       — the two CLI tools, exec'd not dlopen'd
@@ -76,7 +80,6 @@ app/src/main/java/dev/classityreal/pext/
 ```
 
 ## Building
-
 Open the `PExt/` folder in Android Studio (Ladybug/Meerkat or newer) and let
 it sync, or from the CLI:
 
@@ -88,7 +91,6 @@ Requires JDK 17. `compileSdk`/`targetSdk` are set to 35; `minSdk` is 26.
 The resulting APK only installs on **arm64-v8a** devices — see above.
 
 ## Extraction & large files
-
 Neither CLI reports byte-level progress on stdout, so the UI shows an
 indeterminate progress bar plus a tail of the tool's own output line (which
 still shows which file it's currently on). `PacViewModel.startExtraction`
@@ -102,10 +104,7 @@ same `UnpacRunner`/`PacExtractorRunner` calls through it (or a
 the user backgrounding the app mid-run, which matters once you're routinely
 pulling multi-GB `super.img`s out of real firmware.
 
-## Not included yet
-
-- Verification of `unpac list`'s real output format against a device `.pac`
-  (see caveat above)
-- CRC-16 verification of the package (the bundled tools may or may not do
-  this internally — not confirmed)
-- A background-service extraction path that survives the app being closed
+# Current Status & Upcoming Features
+Source code is released! It will update later since I'm adding more features. 
+There's no guide how to compile it on GitHub actions if you're in the Mobile who wanted this APK
+(Since Every Actions is currently broken) As for PC you can go to building section
