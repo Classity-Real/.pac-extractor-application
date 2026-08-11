@@ -69,6 +69,78 @@ fun ExtractingScreen(engine: ExtractionEngine, lastLine: String) {
     }
 }
 
+/**
+ * Batch ("Select from list") equivalent of [ExtractingScreen] — shows which firmware
+ * (of how many) is currently being processed, plus a determinate progress bar since,
+ * unlike the single-file flow, we know the total item count up front.
+ */
+@Composable
+fun BatchExtractingScreen(currentIndex: Int, total: Int, currentName: String, lastLine: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            "Extracting $currentIndex of $total",
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            currentName,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+        if (lastLine.isNotBlank()) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                lastLine,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+        }
+        Spacer(Modifier.height(24.dp))
+        LinearProgressIndicator(
+            progress = currentIndex.toFloat() / total.toFloat(),
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+@Composable
+fun BatchDoneScreen(folderNames: List<String>, onDoneClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            Icons.Filled.CheckCircle,
+            contentDescription = null,
+            modifier = Modifier.height(64.dp),
+            tint = MaterialTheme.colorScheme.primary
+        )
+        Spacer(Modifier.height(16.dp))
+        Text("${folderNames.size} firmwares extracted", style = MaterialTheme.typography.headlineSmall)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Created in PExt: ${folderNames.joinToString(", ")}",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(24.dp))
+        Button(onClick = onDoneClick) { Text("Done") }
+    }
+}
+
 @Composable
 fun DoneScreen(onDoneClick: () -> Unit) {
     Column(

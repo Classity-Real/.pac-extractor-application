@@ -51,7 +51,7 @@ private val DarkColors = darkColorScheme(
 )
 
 /**
- * App theme built on stable Material 3 (MaterialTheme).
+ * App theme built on stable Material 3 ([MaterialTheme]).
  *
  * Material 3 Expressive (MaterialExpressiveTheme, bouncy MotionScheme, the wider
  * Expressive type ramp) isn't used here — as of material3 1.4.0 (stable) those APIs

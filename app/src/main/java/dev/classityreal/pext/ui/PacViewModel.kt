@@ -20,17 +20,26 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 sealed interface Screen {
-    data object PickFile : Screen
+    data object Home : Screen
     data object Loading : Screen
     data class SelectPartitions(val entries: List<NativeEntry>) : Screen
     data class Extracting(val engine: ExtractionEngine, val lastLine: String) : Screen
     data class Done(val outputDir: Uri) : Screen
+
+    // Batch ("Select from list") flow
+    data class SelectMultipleFiles(val files: List<PickedPac>) : Screen
+    data class BatchExtracting(val currentIndex: Int, val total: Int, val currentName: String, val lastLine: String) : Screen
+    data class BatchDone(val folderNames: List<String>) : Screen
+
     data class Error(val message: String, val detail: String = "") : Screen
 }
 
+/** One .pac the user picked for batch extraction, with its display name and byte size. */
+data class PickedPac(val uri: Uri, val name: String, val size: Long)
+
 class PacViewModel(app: Application) : AndroidViewModel(app) {
 
-    private val _screen = MutableStateFlow<Screen>(Screen.PickFile)
+    private val _screen = MutableStateFlow<Screen>(Screen.Home)
     val screen: StateFlow<Screen> = _screen.asStateFlow()
 
     private val _selectedNames = MutableStateFlow<Set<String>>(emptySet())
@@ -114,6 +123,77 @@ class PacViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Step 1 of the batch flow: user picked several .pac files — look up their name/size before showing the summary. */
+    fun onMultipleFilesPicked(uris: List<Uri>) {
+        _screen.value = Screen.Loading
+        viewModelScope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    val app = getApplication<Application>()
+                    uris.map { uri ->
+                        val name = SafBridge.queryDisplayName(app, uri) ?: "firmware.pac"
+                        val size = SafBridge.querySize(app, uri) ?: 0L
+                        PickedPac(uri, name, size)
+                    }
+                }
+            }
+            result.onSuccess { files ->
+                _screen.value = if (files.isEmpty()) {
+                    Screen.Error("No files were selected")
+                } else {
+                    Screen.SelectMultipleFiles(files)
+                }
+            }.onFailure { e -> _screen.value = errorFrom(e) }
+        }
+    }
+
+    /** Free space on internal storage, for the "how much space is available" line on the selection screen. */
+    fun freeSpaceBytes(): Long = SafBridge.internalStorageFreeBytes()
+
+    /**
+     * Step 2 of the batch flow, kicked off after the user grants access to a folder via
+     * ACTION_OPEN_DOCUMENT_TREE. Creates (or reuses) a "PExt" folder inside that grant, then
+     * one numbered subfolder per firmware ("Folder 1", "Folder 2", …), extracting everything
+     * from each .pac into its own subfolder using pacextractor's extract-all mode — batch mode
+     * doesn't offer per-partition selection, it always extracts the whole firmware.
+     */
+    fun startBatchExtraction(files: List<PickedPac>, outputTreeUri: Uri) {
+        val app = getApplication<Application>()
+
+        viewModelScope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    val pextRoot = SafBridge.ensurePExtFolder(app, outputTreeUri)
+                    val createdFolderNames = mutableListOf<String>()
+
+                    files.forEachIndexed { index, pac ->
+                        val position = index + 1
+                        _screen.value = Screen.BatchExtracting(position, files.size, pac.name, "Preparing…")
+
+                        val batchWorkDir = File(workDir, "batch_$index")
+                        batchWorkDir.deleteRecursively()
+                        val localPac = SafBridge.copyUriToCache(app, pac.uri, batchWorkDir)
+                        val outDir = File(batchWorkDir, "out")
+                        outDir.deleteRecursively()
+
+                        PacExtractorRunner(app).extractAll(localPac.absolutePath, outDir) { line ->
+                            _screen.value = Screen.BatchExtracting(position, files.size, pac.name, line)
+                        }
+
+                        val subfolder = SafBridge.createNumberedSubfolder(pextRoot, position)
+                        SafBridge.copyDirToDocumentFile(app, outDir, subfolder)
+                        createdFolderNames += subfolder.name ?: "Folder $position"
+                        batchWorkDir.deleteRecursively()
+                    }
+
+                    createdFolderNames
+                }
+            }
+            result.onSuccess { names -> _screen.value = Screen.BatchDone(names) }
+                .onFailure { e -> _screen.value = errorFrom(e) }
+        }
+    }
+
     private fun errorFrom(e: Throwable): Screen.Error = when (e) {
         is NativeToolException -> Screen.Error(e.message ?: "Native tool failed", e.stdout)
         else -> Screen.Error(e.message ?: "Unexpected error: ${e::class.simpleName}")
@@ -121,7 +201,7 @@ class PacViewModel(app: Application) : AndroidViewModel(app) {
 
     fun reset() {
         _selectedNames.value = emptySet()
-        _screen.value = Screen.PickFile
+        _screen.value = Screen.Home
         workDir.deleteRecursively()
     }
 }

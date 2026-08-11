@@ -14,19 +14,22 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import dev.classityreal.pext.ui.PacViewModel
 import dev.classityreal.pext.ui.Screen
+import dev.classityreal.pext.ui.screens.BatchDoneScreen
+import dev.classityreal.pext.ui.screens.BatchExtractingScreen
 import dev.classityreal.pext.ui.screens.DoneScreen
 import dev.classityreal.pext.ui.screens.ErrorScreen
 import dev.classityreal.pext.ui.screens.ExtractingScreen
-import dev.classityreal.pext.ui.screens.FilePickerScreen
+import dev.classityreal.pext.ui.screens.HomeScreen
 import dev.classityreal.pext.ui.screens.LoadingScreen
 import dev.classityreal.pext.ui.screens.PartitionListScreen
+import dev.classityreal.pext.ui.screens.SelectMultipleFilesScreen
 import dev.classityreal.pext.ui.theme.PExtTheme
 
 class MainActivity : ComponentActivity() {
 
     private val viewModel: PacViewModel by viewModels()
 
-    // Step 1: user picks the .pac file itself.
+    // Step 1 (single-file flow): user picks the .pac file itself.
     private val pickPacFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         uri?.let {
             contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -34,14 +37,30 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // Step 2: after choosing partitions, user picks an output folder to write into.
+    // Step 1 (batch flow): user picks several .pac files at once ("Select from list").
+    private val pickMultiplePacFiles = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            uris.forEach { uri ->
+                contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            viewModel.onMultipleFilesPicked(uris)
+        }
+    }
+
+    // Step 2: after choosing what to extract, user grants access to a destination folder.
+    // Shared by both flows — which ViewModel method to call is decided by the screen we were
+    // on when the picker was launched (SelectPartitions = single-file, SelectMultipleFiles = batch).
     private val pickOutputTree = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
         uri?.let { treeUri ->
             contentResolver.takePersistableUriPermission(
                 treeUri,
                 Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
             )
-            viewModel.startExtraction(treeUri)
+            when (val s = viewModel.screen.value) {
+                is Screen.SelectPartitions -> viewModel.startExtraction(treeUri)
+                is Screen.SelectMultipleFiles -> viewModel.startBatchExtraction(s.files, treeUri)
+                else -> Unit
+            }
         }
     }
 
@@ -53,8 +72,9 @@ class MainActivity : ComponentActivity() {
                     val screen by viewModel.screen.collectAsState()
 
                     when (val s = screen) {
-                        is Screen.PickFile -> FilePickerScreen(
-                            onPickFile = { pickPacFile.launch(arrayOf("*/*")) }
+                        is Screen.Home -> HomeScreen(
+                            onPickFile = { pickPacFile.launch(arrayOf("*/*")) },
+                            onPickFromList = { pickMultiplePacFiles.launch(arrayOf("*/*")) }
                         )
 
                         is Screen.Loading -> LoadingScreen()
@@ -68,6 +88,24 @@ class MainActivity : ComponentActivity() {
                         is Screen.Extracting -> ExtractingScreen(engine = s.engine, lastLine = s.lastLine)
 
                         is Screen.Done -> DoneScreen(onDoneClick = { viewModel.reset() })
+
+                        is Screen.SelectMultipleFiles -> SelectMultipleFilesScreen(
+                            files = s.files,
+                            freeSpaceBytes = viewModel.freeSpaceBytes(),
+                            onExtractClick = { pickOutputTree.launch(null) }
+                        )
+
+                        is Screen.BatchExtracting -> BatchExtractingScreen(
+                            currentIndex = s.currentIndex,
+                            total = s.total,
+                            currentName = s.currentName,
+                            lastLine = s.lastLine
+                        )
+
+                        is Screen.BatchDone -> BatchDoneScreen(
+                            folderNames = s.folderNames,
+                            onDoneClick = { viewModel.reset() }
+                        )
 
                         is Screen.Error -> ErrorScreen(
                             message = s.message,
