@@ -4,12 +4,14 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -29,6 +31,7 @@ import dev.classityreal.pext.ui.screens.HomeScreen
 import dev.classityreal.pext.ui.screens.LoadingScreen
 import dev.classityreal.pext.ui.screens.PartitionListScreen
 import dev.classityreal.pext.ui.screens.SelectMultipleFilesScreen
+import dev.classityreal.pext.ui.screens.SettingsScreen
 import dev.classityreal.pext.ui.theme.PExtTheme
 
 /** Single-pane content (Home, progress screens, etc.) stops growing past this width —
@@ -44,6 +47,7 @@ private val GridContentMaxWidth = 1200.dp
 
 private fun maxContentWidthFor(screen: Screen): Dp = when (screen) {
     is Screen.SelectPartitions, is Screen.SelectMultipleFiles -> GridContentMaxWidth
+    is Screen.Settings -> 720.dp
     else -> NarrowContentMaxWidth
 }
 
@@ -70,8 +74,6 @@ class MainActivity : ComponentActivity() {
     }
 
     // Step 2: after choosing what to extract, user grants access to a destination folder.
-    // Shared by both flows — which ViewModel method to call is decided by the screen we were
-    // on when the picker was launched (SelectPartitions = single-file, SelectMultipleFiles = batch).
     private val pickOutputTree = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
         uri?.let { treeUri ->
             contentResolver.takePersistableUriPermission(
@@ -90,20 +92,51 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         setContent {
-            PExtTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
+            val settings by viewModel.settings.collectAsState()
+            val darkTheme = when (settings.preferDarkTheme) {
+                true -> true
+                false -> false
+                null -> androidx.compose.foundation.isSystemInDarkTheme()
+            }
+
+            PExtTheme(
+                darkTheme = darkTheme,
+                dynamicColor = settings.useDynamicColor
+            ) {
+                // Back panel / secondary surface: outer Material surface fills the
+                // tablet so the centered content panel sits on a distinct layer
+                // (Material 3 "back panel" style breathing room on large screens).
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.surfaceContainerLowest
+                ) {
                     val screen by viewModel.screen.collectAsState()
 
-                    // Center a max-width column so phones stay full-width but tablets/
-                    // foldables don't stretch every button and list edge-to-edge — except
-                    // the two grid screens, which get much more room to actually show
-                    // multiple columns on a tablet (see maxContentWidthFor).
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-                        Box(modifier = Modifier.widthIn(max = maxContentWidthFor(screen)).fillMaxSize()) {
+                    BackHandler(enabled = screen is Screen.Settings) {
+                        viewModel.closeSettings()
+                    }
+                    BackHandler(enabled = screen !is Screen.Home && screen !is Screen.Settings &&
+                        screen !is Screen.Extracting && screen !is Screen.BatchExtracting) {
+                        viewModel.reset()
+                    }
+
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.TopCenter
+                    ) {
+                        Surface(
+                            modifier = Modifier
+                                .widthIn(max = maxContentWidthFor(screen))
+                                .fillMaxSize(),
+                            color = MaterialTheme.colorScheme.surface,
+                            tonalElevation = 1.dp
+                        ) {
                             when (val s = screen) {
                                 is Screen.Home -> HomeScreen(
                                     onPickFile = { pickPacFile.launch(arrayOf("*/*")) },
-                                    onPickFromList = { pickMultiplePacFiles.launch(arrayOf("*/*")) }
+                                    onPickFromList = { pickMultiplePacFiles.launch(arrayOf("*/*")) },
+                                    onOpenSettings = { viewModel.openSettings() },
+                                    useExpressiveBackground = settings.useExpressiveBackground
                                 )
 
                                 is Screen.Loading -> LoadingScreen()
@@ -140,6 +173,16 @@ class MainActivity : ComponentActivity() {
                                     message = s.message,
                                     detail = s.detail,
                                     onRetryClick = { viewModel.reset() }
+                                )
+
+                                is Screen.Settings -> SettingsScreen(
+                                    state = settings,
+                                    onBack = { viewModel.closeSettings() },
+                                    onToggleDynamicColor = viewModel::setUseDynamicColor,
+                                    onToggleExpressiveBackground = viewModel::setUseExpressiveBackground,
+                                    onThemeModeChange = viewModel::setThemeMode,
+                                    onPreferUnpacChange = viewModel::setPreferUnpac,
+                                    onUpdateClick = viewModel::openUpdate
                                 )
                             }
                         }
