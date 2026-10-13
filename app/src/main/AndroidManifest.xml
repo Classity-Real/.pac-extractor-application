@@ -11,6 +11,9 @@
          at all, and is what lint's NotificationPermission check requires. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Used only to query GitHub Releases for update detection. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:allowBackup="false"
         android:extractNativeLibs="true"
