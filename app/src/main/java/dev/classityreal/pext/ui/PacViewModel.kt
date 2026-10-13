@@ -28,7 +28,6 @@ sealed interface Screen {
     data class Extracting(val engine: ExtractionEngine, val lastLine: String) : Screen
     data class Done(val outputDir: Uri) : Screen
 
-    // Batch ("Select from list") flow
     data class SelectMultipleFiles(val files: List<PickedPac>) : Screen
     data class BatchExtracting(val currentIndex: Int, val total: Int, val currentName: String, val lastLine: String) : Screen
     data class BatchDone(val folderNames: List<String>) : Screen
@@ -37,7 +36,6 @@ sealed interface Screen {
     data object Settings : Screen
 }
 
-/** One .pac the user picked for batch extraction, with its display name and byte size. */
 data class PickedPac(val uri: Uri, val name: String, val size: Long)
 
 class PacViewModel(app: Application) : AndroidViewModel(app) {
@@ -55,8 +53,9 @@ class PacViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _settings = MutableStateFlow(
         SettingsState(
-            useDynamicColor = prefs.getBoolean("dynamic_color", true),
-            useExpressiveBackground = prefs.getBoolean("expressive_bg", true),
+            // Monochrome by default — no Material You / no gradient
+            useDynamicColor = prefs.getBoolean("dynamic_color", false),
+            useExpressiveBackground = prefs.getBoolean("expressive_bg", false),
             preferDarkTheme = when (prefs.getString("theme_mode", "system")) {
                 "light" -> false
                 "dark" -> true
@@ -80,18 +79,12 @@ class PacViewModel(app: Application) : AndroidViewModel(app) {
         } else {
             _engine.value = ExtractionEngine.PAC_EXTRACTOR
         }
-        // Lightweight update check: compare against a well-known releases endpoint when online.
         viewModelScope.launch(Dispatchers.IO) {
             checkForUpdate()
         }
     }
 
     private suspend fun checkForUpdate() {
-        // Stub that can be filled with a real GitHub releases fetch later.
-        // For now we only mark updateAvailable when a newer version is explicitly set
-        // (e.g. via CI or future network call). Keep currentVersion accurate.
-        val current = _settings.value.currentVersion
-        // Example: if you later fetch "0.2.0" from GitHub, set updateAvailable = true.
         _settings.update { it.copy(latestVersion = null, updateAvailable = false) }
     }
 
