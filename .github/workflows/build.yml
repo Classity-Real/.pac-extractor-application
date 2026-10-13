@@ -51,34 +51,31 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+          cache: gradle
 
-      - name: Cache Gradle distribution and dependencies
+      # Official Gradle action: restores/saves dependency + build caches automatically.
+      - name: Set up Gradle (with cache)
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: ${{ env.GRADLE_VERSION }}
+          cache-read-only: false
+          cache-cleanup: on-success
+
+      # Extra cache for Android SDK / AGP transform outputs that setup-gradle may not cover.
+      - name: Cache Android build intermediates
         uses: actions/cache@v4
         with:
           path: |
-            ~/.gradle-dist
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ env.GRADLE_VERSION }}-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+            ~/.android/build-cache
+            ~/.gradle/caches/transforms-*
+            ~/.gradle/caches/build-cache-*
+          key: android-build-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/gradle.properties') }}
           restore-keys: |
-            gradle-${{ env.GRADLE_VERSION }}-${{ runner.os }}-
-
-      - name: Download and install Gradle ${{ env.GRADLE_VERSION }}
-        run: |
-          if [ ! -d "$HOME/.gradle-dist/gradle-${GRADLE_VERSION}" ]; then
-            mkdir -p "$HOME/.gradle-dist"
-            curl -fsSL -o /tmp/gradle.zip "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip"
-            unzip -q /tmp/gradle.zip -d "$HOME/.gradle-dist"
-            rm /tmp/gradle.zip
-          fi
-          echo "$HOME/.gradle-dist/gradle-${GRADLE_VERSION}/bin" >> "$GITHUB_PATH"
-
-      - name: Verify Gradle install
-        run: gradle --version
+            android-build-${{ runner.os }}-
 
       # versionCode must be a monotonically increasing integer — the Actions run
       # number does that for free without needing to parse "v1.2.0" into a number.
@@ -90,19 +87,19 @@ jobs:
 
       - name: Run Android Lint
         run: >
-          gradle lint${{ inputs.build_type == 'release' && 'Release' || 'Debug' }} --no-daemon
+          gradle lint${{ inputs.build_type == 'release' && 'Release' || 'Debug' }} --build-cache
           -PappVersionName=${{ steps.version.outputs.version_name }}
           -PappVersionCode=${{ steps.version.outputs.version_code }}
 
       - name: Run unit tests
         run: >
-          gradle test${{ inputs.build_type == 'release' && 'Release' || 'Debug' }}UnitTest --no-daemon
+          gradle test${{ inputs.build_type == 'release' && 'Release' || 'Debug' }}UnitTest --build-cache
           -PappVersionName=${{ steps.version.outputs.version_name }}
           -PappVersionCode=${{ steps.version.outputs.version_code }}
 
       - name: Build ${{ inputs.build_type }} APK
         run: >
-          gradle assemble${{ inputs.build_type == 'release' && 'Release' || 'Debug' }} --no-daemon
+          gradle assemble${{ inputs.build_type == 'release' && 'Release' || 'Debug' }} --build-cache
           -PappVersionName=${{ steps.version.outputs.version_name }}
           -PappVersionCode=${{ steps.version.outputs.version_code }}
 
