@@ -19,7 +19,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
 
 sealed interface Screen {
     data object Home : Screen
@@ -53,7 +56,6 @@ class PacViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _settings = MutableStateFlow(
         SettingsState(
-            // Monochrome by default — no Material You / no gradient
             useDynamicColor = prefs.getBoolean("dynamic_color", false),
             useExpressiveBackground = prefs.getBoolean("expressive_bg", false),
             preferDarkTheme = when (prefs.getString("theme_mode", "system")) {
@@ -63,6 +65,7 @@ class PacViewModel(app: Application) : AndroidViewModel(app) {
             },
             preferUnpacEngine = prefs.getBoolean("prefer_unpac", true),
             currentVersion = runCatching {
+                @Suppress("DEPRECATION")
                 app.packageManager.getPackageInfo(app.packageName, 0).versionName ?: "0.1.0"
             }.getOrDefault("0.1.0"),
             latestVersion = null,
@@ -72,6 +75,9 @@ class PacViewModel(app: Application) : AndroidViewModel(app) {
     val settings: StateFlow<SettingsState> = _settings.asStateFlow()
 
     private val workDir get() = File(getApplication<Application>().cacheDir, "pac_work")
+
+    private var latestReleaseUrl: String =
+        "https://github.com/Classity-Real/.pac-extractor-application/releases"
 
     init {
         if (_settings.value.preferUnpacEngine) {
@@ -84,9 +90,72 @@ class PacViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Queries GitHub Releases API for the latest non-draft release and compares
+     * tag_name to the installed versionName. Handles tags like "2.0.1", "v2.0.1".
+     */
     private suspend fun checkForUpdate() {
-        _settings.update { it.copy(latestVersion = null, updateAvailable = false) }
+        val current = _settings.value.currentVersion
+        val result = runCatching {
+            val url = URL(
+                "https://api.github.com/repos/Classity-Real/.pac-extractor-application/releases/latest"
+            )
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                setRequestProperty("Accept", "application/vnd.github+json")
+                setRequestProperty("User-Agent", "PExt-Android")
+                connectTimeout = 12_000
+                readTimeout = 12_000
+            }
+            try {
+                if (conn.responseCode !in 200..299) {
+                    return@runCatching null
+                }
+                val body = conn.inputStream.bufferedReader().use { it.readText() }
+                val json = JSONObject(body)
+                if (json.optBoolean("draft", false)) return@runCatching null
+                val tag = json.optString("tag_name", "").ifBlank { return@runCatching null }
+                val htmlUrl = json.optString("html_url", latestReleaseUrl)
+                Triple(tag, htmlUrl, isNewerVersion(tag, current))
+            } finally {
+                conn.disconnect()
+            }
+        }.getOrNull()
+
+        if (result != null) {
+            val (tag, htmlUrl, newer) = result
+            latestReleaseUrl = htmlUrl
+            val display = normalizeVersion(tag)
+            _settings.update {
+                it.copy(
+                    latestVersion = display,
+                    updateAvailable = newer
+                )
+            }
+        }
     }
+
+    /** Strip leading 'v'/'V' and compare dotted numeric segments. */
+    private fun normalizeVersion(raw: String): String =
+        raw.trim().removePrefix("v").removePrefix("V").trim()
+
+    private fun isNewerVersion(remoteRaw: String, localRaw: String): Boolean {
+        val remote = parseVersionParts(normalizeVersion(remoteRaw))
+        val local = parseVersionParts(normalizeVersion(localRaw))
+        val len = maxOf(remote.size, local.size)
+        for (i in 0 until len) {
+            val r = remote.getOrElse(i) { 0 }
+            val l = local.getOrElse(i) { 0 }
+            if (r > l) return true
+            if (r < l) return false
+        }
+        return false
+    }
+
+    private fun parseVersionParts(v: String): List<Int> =
+        v.split(Regex("[^0-9]+"))
+            .filter { it.isNotEmpty() }
+            .mapNotNull { it.toIntOrNull() }
 
     fun openSettings() {
         _screen.value = Screen.Settings
@@ -123,9 +192,8 @@ class PacViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun openUpdate() {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(
-            "https://github.com/Classity-Real/.pac-extractor-application/releases"
-        )).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(latestReleaseUrl))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         getApplication<Application>().startActivity(intent)
     }
 
