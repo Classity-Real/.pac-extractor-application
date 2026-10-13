@@ -8,6 +8,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 private val LightColors = lightColorScheme(
@@ -28,6 +29,11 @@ private val LightColors = lightColorScheme(
     onBackground = OnBackgroundLight,
     surface = SurfaceLight,
     onSurface = OnSurfaceLight,
+    surfaceContainerLowest = Color(0xFFEEEEEE),
+    surfaceContainer = Color(0xFFE8E8E8),
+    surfaceContainerHigh = Color(0xFFE0E0E0),
+    surfaceContainerHighest = Color(0xFFD8D8D8),
+    onSurfaceVariant = Color(0xFF5A5A5A),
 )
 
 private val DarkColors = darkColorScheme(
@@ -48,24 +54,22 @@ private val DarkColors = darkColorScheme(
     onBackground = OnBackgroundDark,
     surface = SurfaceDark,
     onSurface = OnSurfaceDark,
+    // Dim dark gray stack for cards / back panels
+    surfaceContainerLowest = Color(0xFF141414),
+    surfaceContainer = Color(0xFF2A2A2A),
+    surfaceContainerHigh = Color(0xFF303030),
+    surfaceContainerHighest = Color(0xFF383838),
+    onSurfaceVariant = Color(0xFFA8A8A8),
 )
 
 /**
- * App theme built on stable Material 3 ([MaterialTheme]).
- *
- * Material 3 Expressive (MaterialExpressiveTheme, bouncy MotionScheme, the wider
- * Expressive type ramp) isn't used here — as of material3 1.4.0 (stable) those APIs
- * are still gated behind material3 1.5.0-alpha, not shipped in stable releases. Revisit
- * once Expressive theming lands in a stable material3 version.
- *
- * Dynamic color (Material You, Android 12+) is used when available so the app
- * matches the user's wallpaper-derived palette; otherwise falls back to the
- * static seed palette above.
+ * Monochrome Material 3 theme. Dynamic color is optional (Settings);
+ * default is the static gray palette so the app stays monochrome.
  */
 @Composable
 fun PExtTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
