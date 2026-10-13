@@ -20,8 +20,8 @@ class UnpacRunner(context: Context) {
     private val tools = NativeTools(context)
     private val binary by lazy { tools.binaryFor(ExtractionEngine.UNPAC) }
 
-    private val nameRe = Regex("""name\s*=\s*"([^"]*)"""")
-    private val idRe = Regex("""id\s*=\s*"([^"]*)"""")
+    private val nameRe = Regex("""name\s*=\s*\"([^\"]*)\"""")
+    private val idRe = Regex("""id\s*=\s*\"([^\"]*)\"""")
     private val typeRe = Regex("""type\s*=\s*(\d+)""")
     private val sizeRe = Regex("""size\s*=\s*0x([0-9a-fA-F]+)""")
 
@@ -39,8 +39,9 @@ class UnpacRunner(context: Context) {
         var sawAnyField = false
 
         fun flush() {
-            if (pendingName != null) {
-                entries += NativeEntry(pendingName!!, pendingId, pendingType, pendingSize)
+            val n = pendingName?.trim().orEmpty()
+            if (n.isNotEmpty()) {
+                entries += NativeEntry(n, pendingId, pendingType, pendingSize)
             }
             pendingName = null; pendingId = ""; pendingType = 0; pendingSize = 0L
         }
@@ -59,26 +60,45 @@ class UnpacRunner(context: Context) {
         }
         flush()
 
-        if (!sawAnyField) {
+        // Deduplicate by name (some firmwares emit the same partition twice)
+        val unique = entries.distinctBy { it.name }
+
+        if (!sawAnyField || unique.isEmpty()) {
             throw NativeToolException(
                 "Couldn't find any partition entries in unpac's output — its list format may differ from what this parser expects.",
                 lines.joinToString("\n")
             )
         }
-        return entries
+        return unique
     }
 
-    /** Extracts [names] (empty = all) from [pacPath] into [outDir]. */
+    /**
+     * Extracts [names] from [pacPath] into [outDir].
+     * Empty list = extract all. Blank / whitespace-only names are filtered out
+     * so a single selected partition never gets dropped because of a bad token.
+     */
     fun extract(pacPath: String, outDir: File, names: List<String> = emptyList(), onLine: (String) -> Unit = {}): Int {
         // See PacExtractorRunner.extractAll for why we don't outDir.mkdirs() here —
         // same precaution in case unpac's own -d handling behaves the same way.
         outDir.deleteRecursively()
         outDir.parentFile?.mkdirs()
+
+        val cleanNames = names.map { it.trim() }.filter { it.isNotEmpty() }
+
         val args = mutableListOf("-d", outDir.absolutePath, "extract", pacPath)
-        args += names
+        // Only append name args when the user actually selected a subset.
+        // Passing a single valid name must work; empty list means "all".
+        if (cleanNames.isNotEmpty()) {
+            args += cleanNames
+        }
+
         val (exitCode, lines) = tools.run(binary, args, onLine)
         if (exitCode != 0) {
-            throw NativeToolException("unpac extract exited with code $exitCode", lines.joinToString("\n"))
+            throw NativeToolException(
+                "unpac extract exited with code $exitCode" +
+                    if (cleanNames.size == 1) " (selected: ${cleanNames.first()})" else "",
+                lines.joinToString("\n")
+            )
         }
         return exitCode
     }
