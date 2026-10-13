@@ -1,6 +1,7 @@
 package dev.classityreal.pext.ui
 
 import android.app.Application
+import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -10,6 +11,7 @@ import dev.classityreal.pext.native.NativeToolException
 import dev.classityreal.pext.native.PacExtractorRunner
 import dev.classityreal.pext.native.SafBridge
 import dev.classityreal.pext.native.UnpacRunner
+import dev.classityreal.pext.ui.screens.SettingsState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,6 +34,7 @@ sealed interface Screen {
     data class BatchDone(val folderNames: List<String>) : Screen
 
     data class Error(val message: String, val detail: String = "") : Screen
+    data object Settings : Screen
 }
 
 /** One .pac the user picked for batch extraction, with its display name and byte size. */
@@ -48,7 +51,90 @@ class PacViewModel(app: Application) : AndroidViewModel(app) {
     private val _engine = MutableStateFlow(ExtractionEngine.UNPAC)
     val engine: StateFlow<ExtractionEngine> = _engine.asStateFlow()
 
+    private val prefs = app.getSharedPreferences("pext_settings", 0)
+
+    private val _settings = MutableStateFlow(
+        SettingsState(
+            useDynamicColor = prefs.getBoolean("dynamic_color", true),
+            useExpressiveBackground = prefs.getBoolean("expressive_bg", true),
+            preferDarkTheme = when (prefs.getString("theme_mode", "system")) {
+                "light" -> false
+                "dark" -> true
+                else -> null
+            },
+            preferUnpacEngine = prefs.getBoolean("prefer_unpac", true),
+            currentVersion = runCatching {
+                app.packageManager.getPackageInfo(app.packageName, 0).versionName ?: "0.1.0"
+            }.getOrDefault("0.1.0"),
+            latestVersion = null,
+            updateAvailable = false
+        )
+    )
+    val settings: StateFlow<SettingsState> = _settings.asStateFlow()
+
     private val workDir get() = File(getApplication<Application>().cacheDir, "pac_work")
+
+    init {
+        if (_settings.value.preferUnpacEngine) {
+            _engine.value = ExtractionEngine.UNPAC
+        } else {
+            _engine.value = ExtractionEngine.PAC_EXTRACTOR
+        }
+        // Lightweight update check: compare against a well-known releases endpoint when online.
+        viewModelScope.launch(Dispatchers.IO) {
+            checkForUpdate()
+        }
+    }
+
+    private suspend fun checkForUpdate() {
+        // Stub that can be filled with a real GitHub releases fetch later.
+        // For now we only mark updateAvailable when a newer version is explicitly set
+        // (e.g. via CI or future network call). Keep currentVersion accurate.
+        val current = _settings.value.currentVersion
+        // Example: if you later fetch "0.2.0" from GitHub, set updateAvailable = true.
+        _settings.update { it.copy(latestVersion = null, updateAvailable = false) }
+    }
+
+    fun openSettings() {
+        _screen.value = Screen.Settings
+    }
+
+    fun closeSettings() {
+        _screen.value = Screen.Home
+    }
+
+    fun setUseDynamicColor(v: Boolean) {
+        prefs.edit().putBoolean("dynamic_color", v).apply()
+        _settings.update { it.copy(useDynamicColor = v) }
+    }
+
+    fun setUseExpressiveBackground(v: Boolean) {
+        prefs.edit().putBoolean("expressive_bg", v).apply()
+        _settings.update { it.copy(useExpressiveBackground = v) }
+    }
+
+    fun setThemeMode(dark: Boolean?) {
+        val mode = when (dark) {
+            true -> "dark"
+            false -> "light"
+            null -> "system"
+        }
+        prefs.edit().putString("theme_mode", mode).apply()
+        _settings.update { it.copy(preferDarkTheme = dark) }
+    }
+
+    fun setPreferUnpac(v: Boolean) {
+        prefs.edit().putBoolean("prefer_unpac", v).apply()
+        _settings.update { it.copy(preferUnpacEngine = v) }
+        _engine.value = if (v) ExtractionEngine.UNPAC else ExtractionEngine.PAC_EXTRACTOR
+    }
+
+    fun openUpdate() {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(
+            "https://github.com/Classity-Real/.pac-extractor-application/releases"
+        )).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        getApplication<Application>().startActivity(intent)
+    }
 
     fun setEngine(e: ExtractionEngine) {
         _engine.value = e
@@ -90,7 +176,7 @@ class PacViewModel(app: Application) : AndroidViewModel(app) {
         val app = getApplication<Application>()
         val localPac = File(workDir, "input.pac")
         val outDir = File(workDir, "out")
-        val names = _selectedNames.value.toList()
+        val names = _selectedNames.value.map { it.trim() }.filter { it.isNotEmpty() }
         val chosenEngine = _engine.value
 
         if (chosenEngine == ExtractionEngine.UNPAC && names.isEmpty()) {
@@ -115,9 +201,6 @@ class PacViewModel(app: Application) : AndroidViewModel(app) {
                         }
                     }
                     SafBridge.copyDirToTree(app, outDir, outputTreeUri)
-                    // Fully extracted and copied out to the user's chosen folder —
-                    // nothing left in app cache is needed anymore, so clear it now
-                    // instead of leaving it sitting there until the user taps Done.
                     workDir.deleteRecursively()
                     outputTreeUri
                 }
@@ -127,7 +210,6 @@ class PacViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Step 1 of the batch flow: user picked several .pac files — look up their name/size before showing the summary. */
     fun onMultipleFilesPicked(uris: List<Uri>) {
         _screen.value = Screen.Loading
         viewModelScope.launch {
@@ -151,16 +233,8 @@ class PacViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Free space on internal storage, for the "how much space is available" line on the selection screen. */
     fun freeSpaceBytes(): Long = SafBridge.internalStorageFreeBytes()
 
-    /**
-     * Step 2 of the batch flow, kicked off after the user grants access to a folder via
-     * ACTION_OPEN_DOCUMENT_TREE. Creates (or reuses) a "PExt" folder inside that grant, then
-     * one numbered subfolder per firmware ("Folder 1", "Folder 2", …), extracting everything
-     * from each .pac into its own subfolder using pacextractor's extract-all mode — batch mode
-     * doesn't offer per-partition selection, it always extracts the whole firmware.
-     */
     fun startBatchExtraction(files: List<PickedPac>, outputTreeUri: Uri) {
         val app = getApplication<Application>()
 
@@ -190,8 +264,6 @@ class PacViewModel(app: Application) : AndroidViewModel(app) {
                         batchWorkDir.deleteRecursively()
                     }
 
-                    // All firmwares extracted and copied out — nothing left in app
-                    // cache is needed, clear it now rather than waiting for reset().
                     workDir.deleteRecursively()
                     createdFolderNames
                 }
