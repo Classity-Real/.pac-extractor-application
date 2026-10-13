@@ -6,6 +6,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
@@ -34,15 +35,7 @@ import dev.classityreal.pext.ui.screens.SelectMultipleFilesScreen
 import dev.classityreal.pext.ui.screens.SettingsScreen
 import dev.classityreal.pext.ui.theme.PExtTheme
 
-/** Single-pane content (Home, progress screens, etc.) stops growing past this width —
- *  on tablets/foldables the rest of the screen stays as breathing room instead of every
- *  button/status text stretching edge-to-edge. 600dp lines up with Material's
- *  compact/medium window size class boundary. */
 private val NarrowContentMaxWidth = 600.dp
-
-/** The two grid screens (partition list, batch file list) get much more room instead —
- *  otherwise capping at 600dp would only ever leave space for ~2 grid columns even on a
- *  large tablet. 1200dp is a generous ceiling, not a real constraint on any current device. */
 private val GridContentMaxWidth = 1200.dp
 
 private fun maxContentWidthFor(screen: Screen): Dp = when (screen) {
@@ -55,7 +48,6 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: PacViewModel by viewModels()
 
-    // Step 1 (single-file flow): user picks the .pac file itself.
     private val pickPacFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         uri?.let {
             contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -63,7 +55,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // Step 1 (batch flow): user picks several .pac files at once ("Select from list").
     private val pickMultiplePacFiles = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris: List<Uri> ->
         if (uris.isNotEmpty()) {
             uris.forEach { uri ->
@@ -73,7 +64,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // Step 2: after choosing what to extract, user grants access to a destination folder.
     private val pickOutputTree = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
         uri?.let { treeUri ->
             contentResolver.takePersistableUriPermission(
@@ -90,6 +80,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContent {
             val settings by viewModel.settings.collectAsState()
@@ -103,9 +94,6 @@ class MainActivity : ComponentActivity() {
                 darkTheme = darkTheme,
                 dynamicColor = settings.useDynamicColor
             ) {
-                // Back panel / secondary surface: outer Material surface fills the
-                // tablet so the centered content panel sits on a distinct layer
-                // (Material 3 "back panel" style breathing room on large screens).
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.surfaceContainerLowest
@@ -136,7 +124,11 @@ class MainActivity : ComponentActivity() {
                                     onPickFile = { pickPacFile.launch(arrayOf("*/*")) },
                                     onPickFromList = { pickMultiplePacFiles.launch(arrayOf("*/*")) },
                                     onOpenSettings = { viewModel.openSettings() },
-                                    useExpressiveBackground = settings.useExpressiveBackground
+                                    useExpressiveBackground = settings.useExpressiveBackground,
+                                    updateAvailable = settings.updateAvailable,
+                                    currentVersion = settings.currentVersion,
+                                    latestVersion = settings.latestVersion,
+                                    onUpdateClick = { viewModel.openUpdate() }
                                 )
 
                                 is Screen.Loading -> LoadingScreen()
