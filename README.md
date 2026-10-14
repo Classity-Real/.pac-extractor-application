@@ -1,12 +1,4 @@
-## PLEASE READ FOR ANDROID USERS!!
-Starting in 2027*, a silent update, nonconsensually pushed by Google, 
-will block every Android app whose developer hasn't registered with Google, 
-signed their contract, paid up, and handed over government ID.
-
-For more information go to this link
-https://keepandroidopen.org/
-
-![codenation](https://github.com/Classity-Real/.pac-extractor-application/blob/main/Images/Banner.jpg?raw=true)
+![codenation](https://github.com/Classity-Real/.pac-extractor-application/blob/main/Images/Picsart_26-10-14_06-42-19-382.jpg?raw=true)
 # .PExt — "Extracting Unisoc Firmware since 2026!"
 A Tool for android made to inspect and extract partitions (`boot.img`, `vendor_boot.img`,
 `super.img`, modem blobs, etc.) out of Unisoc/Spreadtrum `.pac` firmware
@@ -19,18 +11,17 @@ and i made the tool, any stolen forks will be called "FAKE" or "CLONE"
 
 # How to install
 Requirements:
- - Arm64 Device (The Binaries is built for Arm64)
+ - ARM64 Device (The Binaries is built for Arm64)
  - At-least 32gb on storage (Depending on the size of the .pac)
- - Compiled Apk
 
 Installation:
-
 Pre-Step: If your in PC. Forward it to your device
-1. Go to Downloads > app-debug.apk > Install
-2. Wait for it to complete and enjoy!
+1. Download the latest APK from releases. Then click PExt-x.x.x.apk (x.x.x is the version number)
+2. Wait for it to complete and Install using Package Manager (Implemented on Android and it will show the dialog when clicking the APK)
+3. Wait for it to complete and open the app. And enjoy the tool!
 
 ## How extraction actually works
-The app ships two prebuilt `arm64-v8a` command-line tools —
+The app ships two prebuilt `arm64-v8a` command-line tools from Termux version —
 **`unpac`** and **`pacextractor`** — and shells out to them via
 `ProcessBuilder` rather than parsing the `.pac` format itself:
 
@@ -122,10 +113,7 @@ pulling multi-GB `super.img`s out of real firmware.
 ## Credits
 The license section said you'll need to credit the people who made the binaries.. so heres one
 
-Massatriof16 - Binaries
-
-itsmax - Arm64 Binaries
-
-graytvhead / classity - tool
-
-github, claude - Assist
+- TomKing064 - Original Binaries and Maker of SPD Tools Code.
+- MaxSteel - ARM64 Developer and Maker of Termux Version.
+- Claude, Grok - UI Making and Implementions.
+- Mountain (graytvhead) - UI Planner and Tool Developer.
