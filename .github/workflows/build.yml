@@ -65,8 +65,6 @@ jobs:
           restore-keys: |
             android-build-${{ runner.os }}-
 
-      # versionCode = major*1_000_000 + minor*1_000 + patch*10 + (run_number % 10)
-      # so 2.0.3 always outranks 2.0.2 regardless of old run_number-only codes.
       - name: Compute version properties
         id: version
         run: |
@@ -79,7 +77,6 @@ jobs:
           MA=${MA:-0}; MI=${MI:-0}; PA=${PA:-0}
           RUN=${{ github.run_number }}
           CODE=$(( MA * 1000000 + MI * 1000 + PA * 10 + (RUN % 10) ))
-          # Floor so codes stay above historical run_number-only builds (~40)
           if [ "$CODE" -lt 100 ]; then CODE=$((100 + RUN)); fi
           echo "version_name=$RAW" >> "$GITHUB_OUTPUT"
           echo "version_code=$CODE" >> "$GITHUB_OUTPUT"
@@ -139,11 +136,15 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_VERSION: ${{ steps.version.outputs.version_name }}
           RELEASE_NOTES: ${{ inputs.changelog }}
+          APK_PATH: ${{ steps.apk.outputs.apk_path }}
         run: |
           printf '%s\n' "$RELEASE_NOTES" > release_notes.md
-          gh release create "$RELEASE_VERSION" \
-            "${{ steps.apk.outputs.apk_path }}" \
-            --title "$RELEASE_VERSION" \
-            --notes-file release_notes.md \
-            --clobber || gh release upload "$RELEASE_VERSION" \
-            "${{ steps.apk.outputs.apk_path }}" --clobber
+          if gh release view "$RELEASE_VERSION" >/dev/null 2>&1; then
+            echo "Release $RELEASE_VERSION exists — updating assets and notes"
+            gh release upload "$RELEASE_VERSION" "$APK_PATH" --clobber
+            gh release edit "$RELEASE_VERSION" --notes-file release_notes.md --title "$RELEASE_VERSION"
+          else
+            gh release create "$RELEASE_VERSION" "$APK_PATH" \
+              --title "$RELEASE_VERSION" \
+              --notes-file release_notes.md
+          fi
