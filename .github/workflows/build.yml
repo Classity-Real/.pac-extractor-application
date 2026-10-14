@@ -1,21 +1,14 @@
 name: Build PExt Application
 
-# Manual trigger only — go to the Actions tab, click "Run workflow", and fill in:
-#  - version: becomes both the release tag AND the app's versionName (e.g. what
-#    shows in Settings > Apps > PExt), replacing the old hardcoded "0.1.0".
-#  - changelog: your own release notes text, used as-is — nothing auto-generated.
-#  - build_type: debug or release (release is signed with the debug key for now,
-#    since there's no dedicated release keystore — see app/build.gradle.kts).
-#  - apk_name: base filename for the built APK, e.g. "PExt" -> "PExt-v1.2.0.apk".
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version (e.g. v1.2.0) — becomes the release tag AND the app versionName'
+        description: 'Version (e.g. 2.0.3) — release tag AND app versionName'
         required: true
         type: string
       changelog:
-        description: 'Changelog for this release (used as-is as the release notes)'
+        description: 'Changelog for this release'
         required: true
         type: string
       build_type:
@@ -27,15 +20,12 @@ on:
           - release
         default: debug
       apk_name:
-        description: 'Base filename for the output APK (without version/extension)'
+        description: 'Base filename for the output APK'
         required: true
         type: string
         default: 'PExt'
 
 env:
-  # Pinned to match the Gradle version verified working in Codespaces (sdkman's
-  # default), so Actions and local dev builds against the exact same toolchain
-  # instead of whatever setup-gradle auto-detects.
   GRADLE_VERSION: "9.4.0"
 
 permissions:
@@ -57,7 +47,6 @@ jobs:
           java-version: '17'
           cache: gradle
 
-      # Official Gradle action: restores/saves dependency + build caches automatically.
       - name: Set up Gradle (with cache)
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -65,7 +54,6 @@ jobs:
           cache-read-only: false
           cache-cleanup: on-success
 
-      # Extra cache for Android SDK / AGP transform outputs that setup-gradle may not cover.
       - name: Cache Android build intermediates
         uses: actions/cache@v4
         with:
@@ -77,13 +65,25 @@ jobs:
           restore-keys: |
             android-build-${{ runner.os }}-
 
-      # versionCode must be a monotonically increasing integer — the Actions run
-      # number does that for free without needing to parse "v1.2.0" into a number.
+      # versionCode = major*1_000_000 + minor*1_000 + patch*10 + (run_number % 10)
+      # so 2.0.3 always outranks 2.0.2 regardless of old run_number-only codes.
       - name: Compute version properties
         id: version
         run: |
-          echo "version_name=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
-          echo "version_code=${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          RAW="${{ inputs.version }}"
+          RAW="${RAW#v}"
+          RAW="${RAW#V}"
+          IFS='.' read -r MA MI PA REST <<< "${RAW}.0.0.0"
+          MA=${MA:-0}; MI=${MI:-0}; PA=${PA:-0}
+          MA=${MA//[^0-9]/}; MI=${MI//[^0-9]/}; PA=${PA//[^0-9]/}
+          MA=${MA:-0}; MI=${MI:-0}; PA=${PA:-0}
+          RUN=${{ github.run_number }}
+          CODE=$(( MA * 1000000 + MI * 1000 + PA * 10 + (RUN % 10) ))
+          # Floor so codes stay above historical run_number-only builds (~40)
+          if [ "$CODE" -lt 100 ]; then CODE=$((100 + RUN)); fi
+          echo "version_name=$RAW" >> "$GITHUB_OUTPUT"
+          echo "version_code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "Computed versionName=$RAW versionCode=$CODE"
 
       - name: Run Android Lint
         run: >
@@ -103,20 +103,18 @@ jobs:
           -PappVersionName=${{ steps.version.outputs.version_name }}
           -PappVersionCode=${{ steps.version.outputs.version_code }}
 
-      # Rename the built APK to <apk_name>-<version>.apk so both artifact uploads
-      # and the release asset use a name you actually chose, not app-debug.apk.
       - name: Rename output APK
         id: apk
         run: |
           SRC="app/build/outputs/apk/${{ inputs.build_type }}/app-${{ inputs.build_type }}.apk"
-          OUT_NAME="${{ inputs.apk_name }}-${{ inputs.version }}.apk"
+          OUT_NAME="${{ inputs.apk_name }}-${{ steps.version.outputs.version_name }}.apk"
           cp "$SRC" "$OUT_NAME"
           echo "apk_path=$OUT_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.apk_name }}-${{ inputs.version }}
+          name: ${{ inputs.apk_name }}-${{ steps.version.outputs.version_name }}
           path: ${{ steps.apk.outputs.apk_path }}
           if-no-files-found: warn
 
@@ -136,17 +134,16 @@ jobs:
           path: app/build/reports/tests/test${{ inputs.build_type == 'release' && 'Release' || 'Debug' }}UnitTest/
           if-no-files-found: ignore
 
-      # Only reached if lint/tests/build above all succeeded. Creates the tag if it
-      # doesn't already exist, and uses the changelog text you typed into the
-      # "Run workflow" form as the release notes — no auto-generated notes here.
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version_name }}
           RELEASE_NOTES: ${{ inputs.changelog }}
         run: |
           printf '%s\n' "$RELEASE_NOTES" > release_notes.md
           gh release create "$RELEASE_VERSION" \
             "${{ steps.apk.outputs.apk_path }}" \
             --title "$RELEASE_VERSION" \
-            --notes-file release_notes.md
+            --notes-file release_notes.md \
+            --clobber || gh release upload "$RELEASE_VERSION" \
+            "${{ steps.apk.outputs.apk_path }}" --clobber
