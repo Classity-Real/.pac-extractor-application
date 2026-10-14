@@ -50,10 +50,11 @@ private val CardRadius = 28.dp
 data class CreditEntry(val name: String, val role: String, val icon: ImageVector)
 
 private val Credits = listOf(
-    CreditEntry("Massatriof16", "Binaries", Icons.Filled.Memory),
-    CreditEntry("itsmax", "Arm64 binaries", Icons.Filled.Build),
-    CreditEntry("graytvhead / classity", "Tool", Icons.Filled.Person),
-    CreditEntry("GitHub, Claude", "Assist", Icons.Filled.Code),
+    CreditEntry("TomKing062", "Original Binaries from SPDF Code", Icons.Filled.Memory),
+    CreditEntry("MaxSteel", "ARM64 Binaries, Maker of SPD Tools for Termux", Icons.Filled.Build),
+    CreditEntry("graytvhead", "App Developer and UI Planner", Icons.Filled.Person),
+    CreditEntry("Grok Ai Agent", "UI Making and implementions", Icons.Filled.Code),
+    CreditEntry("Claude Ai Agent", "Original UI Making", Icons.Filled.Code),
 )
 
 @Composable
@@ -82,10 +83,7 @@ fun HomeScreen(
                     contentDescription = "Settings",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            }
-        }
-
-        BrandBannerCard()
+            }BannerCard()
 
         if (updateAvailable && latestVersion != null) {
             Spacer(Modifier.height(12.dp))
@@ -178,7 +176,7 @@ fun HomeScreen(
         Spacer(Modifier.height(28.dp))
 
         Text(
-            "Acknowledgements",
+            "Credits on this Tool",
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
