@@ -83,7 +83,10 @@ fun HomeScreen(
                     contentDescription = "Settings",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            }BannerCard()
+            }
+        }
+
+        BrandBannerCard()
 
         if (updateAvailable && latestVersion != null) {
             Spacer(Modifier.height(12.dp))
