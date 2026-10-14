@@ -275,7 +275,7 @@ private fun UpdateActionCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(Modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.SystemUpdate, null, Modifier.size(22.dp))
                 Spacer(Modifier.size(12.dp))
