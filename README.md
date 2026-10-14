@@ -14,8 +14,7 @@ Requirements:
  - ARM64 Device (The Binaries is built for Arm64)
  - At-least 32gb on storage (Depending on the size of the .pac)
 
-Installation:
-Pre-Step: If your in PC. Forward it to your device
+### Installation:
 1. Download the latest APK from releases. Then click PExt-x.x.x.apk (x.x.x is the version number)
 2. Wait for it to complete and Install using Package Manager (Implemented on Android and it will show the dialog when clicking the APK)
 3. Wait for it to complete and open the app. And enjoy the tool!
