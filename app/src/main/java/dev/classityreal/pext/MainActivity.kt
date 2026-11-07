@@ -1,17 +1,19 @@
 package dev.classityreal.pext
 
 import android.content.Intent
+import android.graphics.Color as AndroidColor
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -23,7 +25,6 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -51,9 +52,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import dev.classityreal.pext.ui.MainTab
@@ -71,9 +71,11 @@ import dev.classityreal.pext.ui.screens.LoadingScreen
 import dev.classityreal.pext.ui.screens.PartitionListScreen
 import dev.classityreal.pext.ui.screens.SelectMultipleFilesScreen
 import dev.classityreal.pext.ui.screens.SettingsScreen
+import dev.classityreal.pext.ui.screens.SettingsState
 import dev.classityreal.pext.ui.theme.PExtTheme
 
 private val TabletBreakpoint = 600.dp
+private val SettingsPaneWidth = 360.dp
 
 class MainActivity : ComponentActivity() {
 
@@ -116,17 +118,15 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(AndroidColor.parseColor("#1C1C1C")),
+            navigationBarStyle = SystemBarStyle.dark(AndroidColor.parseColor("#1C1C1C"))
+        )
         super.onCreate(savedInstanceState)
         setContent {
             val settings by viewModel.settings.collectAsState()
-            val darkTheme = when (settings.preferDarkTheme) {
-                true -> true
-                false -> false
-                null -> androidx.compose.foundation.isSystemInDarkTheme()
-            }
 
-            PExtTheme(darkTheme = darkTheme, dynamicColor = false) {
+            PExtTheme(darkTheme = true, dynamicColor = false) {
                 val screen by viewModel.screen.collectAsState()
                 val mainTab by viewModel.mainTab.collectAsState()
                 var showConsoleSheet by remember { mutableStateOf(false) }
@@ -145,67 +145,42 @@ class MainActivity : ComponentActivity() {
                         screen !is Screen.Extracting && screen !is Screen.BatchExtracting
                 ) { viewModel.reset() }
 
-                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                BoxWithConstraints(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background)
+                ) {
                     val isTablet = maxWidth >= TabletBreakpoint
+                    val showSettingsPane = isTablet && screen is Screen.Settings
 
                     if (isTablet) {
                         Row(
                             modifier = Modifier
                                 .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.background)
                                 .windowInsetsPadding(WindowInsets.statusBars)
                         ) {
-                            if (!inFlow && screen !is Screen.Settings) {
-                                NavigationRail(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                                    modifier = Modifier.fillMaxHeight()
-                                ) {
-                                    Spacer(Modifier.height(12.dp))
-                                    NavigationRailItem(
-                                        selected = mainTab == MainTab.Home && !showConsoleSheet,
-                                        onClick = {
-                                            showConsoleSheet = false
-                                            viewModel.setMainTab(MainTab.Home)
-                                            if (screen !is Screen.Home) viewModel.reset()
-                                        },
-                                        icon = {
-                                            Icon(
-                                                if (mainTab == MainTab.Home) Icons.Filled.Home else Icons.Outlined.Home,
-                                                contentDescription = "Home"
-                                            )
-                                        },
-                                        label = { Text("Home") }
-                                    )
-                                    NavigationRailItem(
-                                        selected = mainTab == MainTab.Files && !showConsoleSheet,
-                                        onClick = {
-                                            showConsoleSheet = false
-                                            viewModel.setMainTab(MainTab.Files)
-                                        },
-                                        icon = {
-                                            Icon(
-                                                if (mainTab == MainTab.Files) Icons.Filled.Folder else Icons.Outlined.Folder,
-                                                contentDescription = "Files"
-                                            )
-                                        },
-                                        label = { Text("Files") }
-                                    )
-                                    NavigationRailItem(
-                                        selected = showConsoleSheet,
-                                        onClick = { showConsoleSheet = true },
-                                        icon = {
-                                            Icon(
-                                                if (showConsoleSheet) Icons.Filled.Terminal else Icons.Outlined.Terminal,
-                                                contentDescription = "Console"
-                                            )
-                                        },
-                                        label = { Text("Console") }
-                                    )
-                                }
+                            if (!inFlow) {
+                                AppRail(
+                                    mainTab = mainTab,
+                                    consoleOpen = showConsoleSheet,
+                                    onHome = {
+                                        showConsoleSheet = false
+                                        viewModel.setMainTab(MainTab.Home)
+                                        if (screen !is Screen.Home) viewModel.reset()
+                                    },
+                                    onFiles = {
+                                        showConsoleSheet = false
+                                        viewModel.setMainTab(MainTab.Files)
+                                        if (screen is Screen.Settings) viewModel.closeSettings()
+                                    },
+                                    onConsole = { showConsoleSheet = true }
+                                )
                             }
 
                             Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
                                 MainContent(
-                                    screen = screen,
+                                    screen = if (showSettingsPane) Screen.Home else screen,
                                     mainTab = mainTab,
                                     settings = settings,
                                     isTablet = true,
@@ -215,32 +190,27 @@ class MainActivity : ComponentActivity() {
                                     onExtract = { pickOutputTree.launch(null) },
                                     onBrowseFolder = { pickBrowseFolder.launch(null) }
                                 )
+                            }
 
-                                // Settings as side panel on tablet
-                                if (screen is Screen.Settings) {
-                                    Surface(
-                                        modifier = Modifier
-                                            .align(Alignment.CenterEnd)
-                                            .fillMaxHeight()
-                                            .widthIn(max = 420.dp)
-                                            .fillMaxWidth(0.45f),
-                                        color = MaterialTheme.colorScheme.surface,
-                                        tonalElevation = 3.dp,
-                                        shadowElevation = 8.dp
-                                    ) {
-                                        SettingsScreen(
-                                            state = settings,
-                                            onBack = { viewModel.closeSettings() },
-                                            onThemeModeChange = viewModel::setThemeMode,
-                                            onPreferUnpacChange = viewModel::setPreferUnpac,
-                                            onUpdateClick = viewModel::openUpdate
-                                        )
-                                    }
+                            if (showSettingsPane) {
+                                Surface(
+                                    modifier = Modifier
+                                        .width(SettingsPaneWidth)
+                                        .fillMaxHeight(),
+                                    color = MaterialTheme.colorScheme.surface,
+                                    tonalElevation = 2.dp
+                                ) {
+                                    SettingsScreen(
+                                        state = settings,
+                                        onBack = { viewModel.closeSettings() },
+                                        onThemeModeChange = viewModel::setThemeMode,
+                                        onPreferUnpacChange = viewModel::setPreferUnpac,
+                                        onUpdateClick = viewModel::openUpdate
+                                    )
                                 }
                             }
                         }
                     } else {
-                        // Phone: floating navigation bar
                         Scaffold(
                             containerColor = MaterialTheme.colorScheme.background,
                             contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -259,51 +229,20 @@ class MainActivity : ComponentActivity() {
                                             shadowElevation = 6.dp,
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
-                                            NavigationBar(
-                                                containerColor = androidx.compose.ui.graphics.Color.Transparent,
-                                                tonalElevation = 0.dp
-                                            ) {
-                                                NavigationBarItem(
-                                                    selected = mainTab == MainTab.Home && !showConsoleSheet,
-                                                    onClick = {
-                                                        showConsoleSheet = false
-                                                        viewModel.setMainTab(MainTab.Home)
-                                                        if (screen !is Screen.Home) viewModel.reset()
-                                                    },
-                                                    icon = {
-                                                        Icon(
-                                                            if (mainTab == MainTab.Home) Icons.Filled.Home else Icons.Outlined.Home,
-                                                            contentDescription = "Home"
-                                                        )
-                                                    },
-                                                    label = { Text("Home") }
-                                                )
-                                                NavigationBarItem(
-                                                    selected = mainTab == MainTab.Files && !showConsoleSheet,
-                                                    onClick = {
-                                                        showConsoleSheet = false
-                                                        viewModel.setMainTab(MainTab.Files)
-                                                    },
-                                                    icon = {
-                                                        Icon(
-                                                            if (mainTab == MainTab.Files) Icons.Filled.Folder else Icons.Outlined.Folder,
-                                                            contentDescription = "Files"
-                                                        )
-                                                    },
-                                                    label = { Text("Files") }
-                                                )
-                                                NavigationBarItem(
-                                                    selected = showConsoleSheet,
-                                                    onClick = { showConsoleSheet = true },
-                                                    icon = {
-                                                        Icon(
-                                                            if (showConsoleSheet) Icons.Filled.Terminal else Icons.Outlined.Terminal,
-                                                            contentDescription = "Console"
-                                                        )
-                                                    },
-                                                    label = { Text("Console") }
-                                                )
-                                            }
+                                            FloatingNav(
+                                                mainTab = mainTab,
+                                                consoleOpen = showConsoleSheet,
+                                                onHome = {
+                                                    showConsoleSheet = false
+                                                    viewModel.setMainTab(MainTab.Home)
+                                                    if (screen !is Screen.Home) viewModel.reset()
+                                                },
+                                                onFiles = {
+                                                    showConsoleSheet = false
+                                                    viewModel.setMainTab(MainTab.Files)
+                                                },
+                                                onConsole = { showConsoleSheet = true }
+                                            )
                                         }
                                     }
                                 }
@@ -351,10 +290,107 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
+    private fun AppRail(
+        mainTab: MainTab,
+        consoleOpen: Boolean,
+        onHome: () -> Unit,
+        onFiles: () -> Unit,
+        onConsole: () -> Unit
+    ) {
+        NavigationRail(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            modifier = Modifier.fillMaxHeight()
+        ) {
+            Spacer(Modifier.height(12.dp))
+            NavigationRailItem(
+                selected = mainTab == MainTab.Home && !consoleOpen,
+                onClick = onHome,
+                icon = {
+                    Icon(
+                        if (mainTab == MainTab.Home) Icons.Filled.Home else Icons.Outlined.Home,
+                        contentDescription = "Home"
+                    )
+                },
+                label = { Text("Home") }
+            )
+            NavigationRailItem(
+                selected = mainTab == MainTab.Files && !consoleOpen,
+                onClick = onFiles,
+                icon = {
+                    Icon(
+                        if (mainTab == MainTab.Files) Icons.Filled.Folder else Icons.Outlined.Folder,
+                        contentDescription = "Files"
+                    )
+                },
+                label = { Text("Files") }
+            )
+            NavigationRailItem(
+                selected = consoleOpen,
+                onClick = onConsole,
+                icon = {
+                    Icon(
+                        if (consoleOpen) Icons.Filled.Terminal else Icons.Outlined.Terminal,
+                        contentDescription = "Console"
+                    )
+                },
+                label = { Text("Console") }
+            )
+        }
+    }
+
+    @Composable
+    private fun FloatingNav(
+        mainTab: MainTab,
+        consoleOpen: Boolean,
+        onHome: () -> Unit,
+        onFiles: () -> Unit,
+        onConsole: () -> Unit
+    ) {
+        NavigationBar(
+            containerColor = Color.Transparent,
+            tonalElevation = 0.dp
+        ) {
+            NavigationBarItem(
+                selected = mainTab == MainTab.Home && !consoleOpen,
+                onClick = onHome,
+                icon = {
+                    Icon(
+                        if (mainTab == MainTab.Home) Icons.Filled.Home else Icons.Outlined.Home,
+                        contentDescription = "Home"
+                    )
+                },
+                label = { Text("Home") }
+            )
+            NavigationBarItem(
+                selected = mainTab == MainTab.Files && !consoleOpen,
+                onClick = onFiles,
+                icon = {
+                    Icon(
+                        if (mainTab == MainTab.Files) Icons.Filled.Folder else Icons.Outlined.Folder,
+                        contentDescription = "Files"
+                    )
+                },
+                label = { Text("Files") }
+            )
+            NavigationBarItem(
+                selected = consoleOpen,
+                onClick = onConsole,
+                icon = {
+                    Icon(
+                        if (consoleOpen) Icons.Filled.Terminal else Icons.Outlined.Terminal,
+                        contentDescription = "Console"
+                    )
+                },
+                label = { Text("Console") }
+            )
+        }
+    }
+
+    @Composable
     private fun MainContent(
         screen: Screen,
         mainTab: MainTab,
-        settings: dev.classityreal.pext.ui.screens.SettingsState,
+        settings: SettingsState,
         isTablet: Boolean,
         onPickFile: () -> Unit,
         onPickFromList: () -> Unit,
@@ -387,18 +423,7 @@ class MainActivity : ComponentActivity() {
                         )
                         else -> {}
                     }
-                    MainTab.Files -> {
-                        val files by viewModel.managedFiles.collectAsState()
-                        val label by viewModel.folderLabel.collectAsState()
-                        FilesScreen(
-                            files = files,
-                            folderLabel = label,
-                            onOpenFolder = onBrowseFolder,
-                            onRefresh = { viewModel.refreshFolder() }
-                        )
-                    }
-                    MainTab.Console -> {
-                        // Console opens as bottom drawer; show Files as fallback content
+                    MainTab.Files, MainTab.Console -> {
                         val files by viewModel.managedFiles.collectAsState()
                         val label by viewModel.folderLabel.collectAsState()
                         FilesScreen(
@@ -443,17 +468,6 @@ class MainActivity : ComponentActivity() {
                         onThemeModeChange = viewModel::setThemeMode,
                         onPreferUnpacChange = viewModel::setPreferUnpac,
                         onUpdateClick = viewModel::openUpdate
-                    )
-                } else {
-                    // Background home while side panel shows settings
-                    HomeScreen(
-                        onPickFile = onPickFile,
-                        onPickFromList = onPickFromList,
-                        onOpenSettings = onOpenSettings,
-                        updateAvailable = settings.updateAvailable,
-                        currentVersion = settings.currentVersion,
-                        latestVersion = settings.latestVersion,
-                        onUpdateClick = { viewModel.openUpdate() }
                     )
                 }
             }
