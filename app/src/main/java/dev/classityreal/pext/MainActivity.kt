@@ -10,12 +10,22 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Home
@@ -23,18 +33,27 @@ import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Terminal
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import dev.classityreal.pext.ui.MainTab
@@ -54,14 +73,7 @@ import dev.classityreal.pext.ui.screens.SelectMultipleFilesScreen
 import dev.classityreal.pext.ui.screens.SettingsScreen
 import dev.classityreal.pext.ui.theme.PExtTheme
 
-private val NarrowContentMaxWidth = 600.dp
-private val GridContentMaxWidth = 1200.dp
-
-private fun maxContentWidthFor(screen: Screen): Dp = when (screen) {
-    is Screen.SelectPartitions, is Screen.SelectMultipleFiles -> GridContentMaxWidth
-    is Screen.Settings -> 720.dp
-    else -> NarrowContentMaxWidth
-}
+private val TabletBreakpoint = 600.dp
 
 class MainActivity : ComponentActivity() {
 
@@ -101,6 +113,7 @@ class MainActivity : ComponentActivity() {
         uri?.let { viewModel.onBrowseFolderPicked(it) }
     }
 
+    @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         enableEdgeToEdge()
@@ -113,162 +126,335 @@ class MainActivity : ComponentActivity() {
                 null -> androidx.compose.foundation.isSystemInDarkTheme()
             }
 
-            // Always monochrome — dynamic color disabled
             PExtTheme(darkTheme = darkTheme, dynamicColor = false) {
                 val screen by viewModel.screen.collectAsState()
                 val mainTab by viewModel.mainTab.collectAsState()
-                val showBottomBar = screen is Screen.Home || screen is Screen.Done ||
-                    screen is Screen.BatchDone || screen is Screen.Error
+                var showConsoleSheet by remember { mutableStateOf(false) }
+                val consoleSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+                val inFlow = screen is Screen.Loading ||
+                    screen is Screen.SelectPartitions ||
+                    screen is Screen.Extracting ||
+                    screen is Screen.SelectMultipleFiles ||
+                    screen is Screen.BatchExtracting
 
                 BackHandler(enabled = screen is Screen.Settings) { viewModel.closeSettings() }
+                BackHandler(enabled = showConsoleSheet) { showConsoleSheet = false }
                 BackHandler(
-                    enabled = screen !is Screen.Home && screen !is Screen.Settings &&
+                    enabled = !showConsoleSheet && screen !is Screen.Home && screen !is Screen.Settings &&
                         screen !is Screen.Extracting && screen !is Screen.BatchExtracting
                 ) { viewModel.reset() }
 
-                Scaffold(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    contentWindowInsets = WindowInsets(0, 0, 0, 0),
-                    bottomBar = {
-                        if (showBottomBar && screen !is Screen.Settings) {
-                            NavigationBar(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                                tonalElevation = 0.dp
-                            ) {
-                                NavigationBarItem(
-                                    selected = mainTab == MainTab.Home,
-                                    onClick = {
-                                        viewModel.setMainTab(MainTab.Home)
-                                        if (screen !is Screen.Home) viewModel.reset()
-                                    },
-                                    icon = {
-                                        Icon(
-                                            if (mainTab == MainTab.Home) Icons.Filled.Home
-                                            else Icons.Outlined.Home,
-                                            contentDescription = "Home"
-                                        )
-                                    },
-                                    label = { Text("Home") }
+                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                    val isTablet = maxWidth >= TabletBreakpoint
+
+                    if (isTablet) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .windowInsetsPadding(WindowInsets.statusBars)
+                        ) {
+                            if (!inFlow && screen !is Screen.Settings) {
+                                NavigationRail(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                                    modifier = Modifier.fillMaxHeight()
+                                ) {
+                                    Spacer(Modifier.height(12.dp))
+                                    NavigationRailItem(
+                                        selected = mainTab == MainTab.Home && !showConsoleSheet,
+                                        onClick = {
+                                            showConsoleSheet = false
+                                            viewModel.setMainTab(MainTab.Home)
+                                            if (screen !is Screen.Home) viewModel.reset()
+                                        },
+                                        icon = {
+                                            Icon(
+                                                if (mainTab == MainTab.Home) Icons.Filled.Home else Icons.Outlined.Home,
+                                                contentDescription = "Home"
+                                            )
+                                        },
+                                        label = { Text("Home") }
+                                    )
+                                    NavigationRailItem(
+                                        selected = mainTab == MainTab.Files && !showConsoleSheet,
+                                        onClick = {
+                                            showConsoleSheet = false
+                                            viewModel.setMainTab(MainTab.Files)
+                                        },
+                                        icon = {
+                                            Icon(
+                                                if (mainTab == MainTab.Files) Icons.Filled.Folder else Icons.Outlined.Folder,
+                                                contentDescription = "Files"
+                                            )
+                                        },
+                                        label = { Text("Files") }
+                                    )
+                                    NavigationRailItem(
+                                        selected = showConsoleSheet,
+                                        onClick = { showConsoleSheet = true },
+                                        icon = {
+                                            Icon(
+                                                if (showConsoleSheet) Icons.Filled.Terminal else Icons.Outlined.Terminal,
+                                                contentDescription = "Console"
+                                            )
+                                        },
+                                        label = { Text("Console") }
+                                    )
+                                }
+                            }
+
+                            Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                                MainContent(
+                                    screen = screen,
+                                    mainTab = mainTab,
+                                    settings = settings,
+                                    isTablet = true,
+                                    onPickFile = { pickPacFile.launch(arrayOf("*/*")) },
+                                    onPickFromList = { pickMultiplePacFiles.launch(arrayOf("*/*")) },
+                                    onOpenSettings = { viewModel.openSettings() },
+                                    onExtract = { pickOutputTree.launch(null) },
+                                    onBrowseFolder = { pickBrowseFolder.launch(null) }
                                 )
-                                NavigationBarItem(
-                                    selected = mainTab == MainTab.Files,
-                                    onClick = { viewModel.setMainTab(MainTab.Files) },
-                                    icon = {
-                                        Icon(
-                                            if (mainTab == MainTab.Files) Icons.Filled.Folder
-                                            else Icons.Outlined.Folder,
-                                            contentDescription = "Files"
+
+                                // Settings as side panel on tablet
+                                if (screen is Screen.Settings) {
+                                    Surface(
+                                        modifier = Modifier
+                                            .align(Alignment.CenterEnd)
+                                            .fillMaxHeight()
+                                            .widthIn(max = 420.dp)
+                                            .fillMaxWidth(0.45f),
+                                        color = MaterialTheme.colorScheme.surface,
+                                        tonalElevation = 3.dp,
+                                        shadowElevation = 8.dp
+                                    ) {
+                                        SettingsScreen(
+                                            state = settings,
+                                            onBack = { viewModel.closeSettings() },
+                                            onThemeModeChange = viewModel::setThemeMode,
+                                            onPreferUnpacChange = viewModel::setPreferUnpac,
+                                            onUpdateClick = viewModel::openUpdate
                                         )
-                                    },
-                                    label = { Text("Files") }
-                                )
-                                NavigationBarItem(
-                                    selected = mainTab == MainTab.Console,
-                                    onClick = { viewModel.setMainTab(MainTab.Console) },
-                                    icon = {
-                                        Icon(
-                                            if (mainTab == MainTab.Console) Icons.Filled.Terminal
-                                            else Icons.Outlined.Terminal,
-                                            contentDescription = "Console"
-                                        )
-                                    },
-                                    label = { Text("Console") }
-                                )
+                                    }
+                                }
                             }
                         }
-                    }
-                ) { innerPadding ->
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding)
-                            .windowInsetsPadding(WindowInsets.statusBars),
-                        contentAlignment = Alignment.TopCenter
-                    ) {
-                        Surface(
-                            modifier = Modifier
-                                .widthIn(max = maxContentWidthFor(screen))
-                                .fillMaxSize(),
-                            color = MaterialTheme.colorScheme.background
-                        ) {
-                            when (val s = screen) {
-                                is Screen.Home, is Screen.Done, is Screen.BatchDone, is Screen.Error -> {
-                                    when (mainTab) {
-                                        MainTab.Home -> when (s) {
-                                            is Screen.Home -> HomeScreen(
-                                                onPickFile = { pickPacFile.launch(arrayOf("*/*")) },
-                                                onPickFromList = { pickMultiplePacFiles.launch(arrayOf("*/*")) },
-                                                onOpenSettings = { viewModel.openSettings() },
-                                                updateAvailable = settings.updateAvailable,
-                                                currentVersion = settings.currentVersion,
-                                                latestVersion = settings.latestVersion,
-                                                onUpdateClick = { viewModel.openUpdate() }
-                                            )
-                                            is Screen.Done -> DoneScreen(onDoneClick = { viewModel.reset() })
-                                            is Screen.BatchDone -> BatchDoneScreen(
-                                                folderNames = s.folderNames,
-                                                onDoneClick = { viewModel.reset() }
-                                            )
-                                            is Screen.Error -> ErrorScreen(
-                                                message = s.message,
-                                                detail = s.detail,
-                                                onRetryClick = { viewModel.reset() }
-                                            )
-                                            else -> {}
-                                        }
-                                        MainTab.Files -> {
-                                            val files by viewModel.managedFiles.collectAsState()
-                                            val label by viewModel.folderLabel.collectAsState()
-                                            FilesScreen(
-                                                files = files,
-                                                folderLabel = label,
-                                                onOpenFolder = { pickBrowseFolder.launch(null) },
-                                                onRefresh = { viewModel.refreshFolder() }
-                                            )
-                                        }
-                                        MainTab.Console -> {
-                                            val lines by viewModel.console.collectAsState()
-                                            ConsoleScreen(
-                                                lines = lines,
-                                                onClear = { viewModel.clearConsole() }
-                                            )
+                    } else {
+                        // Phone: floating navigation bar
+                        Scaffold(
+                            containerColor = MaterialTheme.colorScheme.background,
+                            contentWindowInsets = WindowInsets(0, 0, 0, 0),
+                            bottomBar = {
+                                if (!inFlow && screen !is Screen.Settings) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .windowInsetsPadding(WindowInsets.navigationBars)
+                                            .padding(horizontal = 24.dp, vertical = 12.dp)
+                                    ) {
+                                        Surface(
+                                            shape = RoundedCornerShape(28.dp),
+                                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                            tonalElevation = 3.dp,
+                                            shadowElevation = 6.dp,
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            NavigationBar(
+                                                containerColor = androidx.compose.ui.graphics.Color.Transparent,
+                                                tonalElevation = 0.dp
+                                            ) {
+                                                NavigationBarItem(
+                                                    selected = mainTab == MainTab.Home && !showConsoleSheet,
+                                                    onClick = {
+                                                        showConsoleSheet = false
+                                                        viewModel.setMainTab(MainTab.Home)
+                                                        if (screen !is Screen.Home) viewModel.reset()
+                                                    },
+                                                    icon = {
+                                                        Icon(
+                                                            if (mainTab == MainTab.Home) Icons.Filled.Home else Icons.Outlined.Home,
+                                                            contentDescription = "Home"
+                                                        )
+                                                    },
+                                                    label = { Text("Home") }
+                                                )
+                                                NavigationBarItem(
+                                                    selected = mainTab == MainTab.Files && !showConsoleSheet,
+                                                    onClick = {
+                                                        showConsoleSheet = false
+                                                        viewModel.setMainTab(MainTab.Files)
+                                                    },
+                                                    icon = {
+                                                        Icon(
+                                                            if (mainTab == MainTab.Files) Icons.Filled.Folder else Icons.Outlined.Folder,
+                                                            contentDescription = "Files"
+                                                        )
+                                                    },
+                                                    label = { Text("Files") }
+                                                )
+                                                NavigationBarItem(
+                                                    selected = showConsoleSheet,
+                                                    onClick = { showConsoleSheet = true },
+                                                    icon = {
+                                                        Icon(
+                                                            if (showConsoleSheet) Icons.Filled.Terminal else Icons.Outlined.Terminal,
+                                                            contentDescription = "Console"
+                                                        )
+                                                    },
+                                                    label = { Text("Console") }
+                                                )
+                                            }
                                         }
                                     }
                                 }
-
-                                is Screen.Loading -> LoadingScreen()
-
-                                is Screen.SelectPartitions -> PartitionListScreen(
-                                    entries = s.entries,
-                                    viewModel = viewModel,
-                                    onExtractClick = { pickOutputTree.launch(null) }
-                                )
-
-                                is Screen.Extracting -> ExtractingScreen(engine = s.engine, lastLine = s.lastLine)
-
-                                is Screen.SelectMultipleFiles -> SelectMultipleFilesScreen(
-                                    files = s.files,
-                                    freeSpaceBytes = viewModel.freeSpaceBytes(),
-                                    onExtractClick = { pickOutputTree.launch(null) }
-                                )
-
-                                is Screen.BatchExtracting -> BatchExtractingScreen(
-                                    currentIndex = s.currentIndex,
-                                    total = s.total,
-                                    currentName = s.currentName,
-                                    lastLine = s.lastLine
-                                )
-
-                                is Screen.Settings -> SettingsScreen(
-                                    state = settings,
-                                    onBack = { viewModel.closeSettings() },
-                                    onThemeModeChange = viewModel::setThemeMode,
-                                    onPreferUnpacChange = viewModel::setPreferUnpac,
-                                    onUpdateClick = viewModel::openUpdate
+                            }
+                        ) { innerPadding ->
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(innerPadding)
+                                    .windowInsetsPadding(WindowInsets.statusBars)
+                            ) {
+                                MainContent(
+                                    screen = screen,
+                                    mainTab = mainTab,
+                                    settings = settings,
+                                    isTablet = false,
+                                    onPickFile = { pickPacFile.launch(arrayOf("*/*")) },
+                                    onPickFromList = { pickMultiplePacFiles.launch(arrayOf("*/*")) },
+                                    onOpenSettings = { viewModel.openSettings() },
+                                    onExtract = { pickOutputTree.launch(null) },
+                                    onBrowseFolder = { pickBrowseFolder.launch(null) }
                                 )
                             }
                         }
                     }
+
+                    if (showConsoleSheet) {
+                        ModalBottomSheet(
+                            onDismissRequest = { showConsoleSheet = false },
+                            sheetState = consoleSheetState,
+                            containerColor = MaterialTheme.colorScheme.surface
+                        ) {
+                            val lines by viewModel.console.collectAsState()
+                            Box(modifier = Modifier.height(420.dp)) {
+                                ConsoleScreen(
+                                    lines = lines,
+                                    onClear = { viewModel.clearConsole() }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun MainContent(
+        screen: Screen,
+        mainTab: MainTab,
+        settings: dev.classityreal.pext.ui.screens.SettingsState,
+        isTablet: Boolean,
+        onPickFile: () -> Unit,
+        onPickFromList: () -> Unit,
+        onOpenSettings: () -> Unit,
+        onExtract: () -> Unit,
+        onBrowseFolder: () -> Unit
+    ) {
+        when (val s = screen) {
+            is Screen.Home, is Screen.Done, is Screen.BatchDone, is Screen.Error -> {
+                when (mainTab) {
+                    MainTab.Home -> when (s) {
+                        is Screen.Home -> HomeScreen(
+                            onPickFile = onPickFile,
+                            onPickFromList = onPickFromList,
+                            onOpenSettings = onOpenSettings,
+                            updateAvailable = settings.updateAvailable,
+                            currentVersion = settings.currentVersion,
+                            latestVersion = settings.latestVersion,
+                            onUpdateClick = { viewModel.openUpdate() }
+                        )
+                        is Screen.Done -> DoneScreen(onDoneClick = { viewModel.reset() })
+                        is Screen.BatchDone -> BatchDoneScreen(
+                            folderNames = s.folderNames,
+                            onDoneClick = { viewModel.reset() }
+                        )
+                        is Screen.Error -> ErrorScreen(
+                            message = s.message,
+                            detail = s.detail,
+                            onRetryClick = { viewModel.reset() }
+                        )
+                        else -> {}
+                    }
+                    MainTab.Files -> {
+                        val files by viewModel.managedFiles.collectAsState()
+                        val label by viewModel.folderLabel.collectAsState()
+                        FilesScreen(
+                            files = files,
+                            folderLabel = label,
+                            onOpenFolder = onBrowseFolder,
+                            onRefresh = { viewModel.refreshFolder() }
+                        )
+                    }
+                    MainTab.Console -> {
+                        // Console opens as bottom drawer; show Files as fallback content
+                        val files by viewModel.managedFiles.collectAsState()
+                        val label by viewModel.folderLabel.collectAsState()
+                        FilesScreen(
+                            files = files,
+                            folderLabel = label,
+                            onOpenFolder = onBrowseFolder,
+                            onRefresh = { viewModel.refreshFolder() }
+                        )
+                    }
+                }
+            }
+
+            is Screen.Loading -> LoadingScreen()
+
+            is Screen.SelectPartitions -> PartitionListScreen(
+                entries = s.entries,
+                viewModel = viewModel,
+                onExtractClick = onExtract,
+                onBack = { viewModel.reset() }
+            )
+
+            is Screen.Extracting -> ExtractingScreen(engine = s.engine, lastLine = s.lastLine)
+
+            is Screen.SelectMultipleFiles -> SelectMultipleFilesScreen(
+                files = s.files,
+                freeSpaceBytes = viewModel.freeSpaceBytes(),
+                onExtractClick = onExtract
+            )
+
+            is Screen.BatchExtracting -> BatchExtractingScreen(
+                currentIndex = s.currentIndex,
+                total = s.total,
+                currentName = s.currentName,
+                lastLine = s.lastLine
+            )
+
+            is Screen.Settings -> {
+                if (!isTablet) {
+                    SettingsScreen(
+                        state = settings,
+                        onBack = { viewModel.closeSettings() },
+                        onThemeModeChange = viewModel::setThemeMode,
+                        onPreferUnpacChange = viewModel::setPreferUnpac,
+                        onUpdateClick = viewModel::openUpdate
+                    )
+                } else {
+                    // Background home while side panel shows settings
+                    HomeScreen(
+                        onPickFile = onPickFile,
+                        onPickFromList = onPickFromList,
+                        onOpenSettings = onOpenSettings,
+                        updateAvailable = settings.updateAvailable,
+                        currentVersion = settings.currentVersion,
+                        latestVersion = settings.latestVersion,
+                        onUpdateClick = { viewModel.openUpdate() }
+                    )
                 }
             }
         }
