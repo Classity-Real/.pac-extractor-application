@@ -1,19 +1,14 @@
 <resources>
-    <!-- Compose draws all UI itself; this just needs to be a NoActionBar theme
-         so the platform doesn't add its own app bar on top of the Compose one. -->
-    <style name="Theme.PExt" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.PExt" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#1C1C1C</item>
+        <item name="android:statusBarColor">#1C1C1C</item>
+        <item name="android:navigationBarColor">#1C1C1C</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
 
-    <!-- Shown for the brief moment between tapping the launcher icon and Compose's
-         first frame. Extends the AndroidX SplashScreen compat theme so it looks and
-         animates the same way on every supported version, not just Android 12+ where
-         the platform SplashScreen API exists natively. postSplashScreenTheme is what
-         the library swaps the window back to once Compose is ready to draw.
-
-         This is the fallback background (static app-icon teal) for API <31, where
-         Material You dynamic color doesn't exist. See values-v31/themes.xml for the
-         wallpaper-derived override used on API 31+. -->
     <style name="Theme.PExt.Starting" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/ic_launcher_background</item>
+        <item name="windowSplashScreenBackground">#1C1C1C</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon_animated</item>
         <item name="windowSplashScreenAnimationDuration">600</item>
         <item name="postSplashScreenTheme">@style/Theme.PExt</item>
