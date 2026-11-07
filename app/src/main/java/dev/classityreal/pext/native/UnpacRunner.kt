@@ -38,7 +38,7 @@ class UnpacRunner(context: Context) {
         }
 
         for (line in lines) {
-            val name = = nameRe.find(line)?.groupValues?.get(1)
+            val name = nameRe.find(line)?.groupValues?.get(1)
             if (name != null) {
                 flush()
                 pendingName = name
@@ -88,7 +88,7 @@ class UnpacRunner(context: Context) {
                 "unpac extract exited with code $exitCode" +
                     if (cleanNames.size == 1) " (selected: ${cleanNames.first()})" else "",
                 lines.joinToString("\n")
-            )
+n            )
         }
         return exitCode
     }
