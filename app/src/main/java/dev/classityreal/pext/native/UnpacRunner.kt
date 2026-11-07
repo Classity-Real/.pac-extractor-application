@@ -6,15 +6,6 @@ import java.io.File
 /**
  * Wraps `unpac`. Real usage string (from the binary's own --help output):
  *   Usage: unpac [-d dir] {list|extract|check} firmware.pac [names]
- *
- * `list` prints one summary block per partition; each printed field looks
- * like `name = "boot.img"`, `id = "FDL"`, `type = 0`, `size = 0x1234`. The
- * exact line grouping isn't confirmed against a real device .pac — the
- * parser below scans every stdout line for those four `key = value` tokens
- * independent of how they're grouped, so it degrades gracefully (missing
- * fields just come back blank/zero) rather than throwing if the real
- * layout differs slightly. Verify field values against a known-good .pac
- * before shipping, and adjust the regexes below if something looks off.
  */
 class UnpacRunner(context: Context) {
     private val tools = NativeTools(context)
@@ -47,9 +38,8 @@ class UnpacRunner(context: Context) {
         }
 
         for (line in lines) {
-            val name = nameRe.find(line)?.groupValues?.get(1)
+            val name = = nameRe.find(line)?.groupValues?.get(1)
             if (name != null) {
-                // A new "name = ..." starts a new entry block.
                 flush()
                 pendingName = name
                 sawAnyField = true
@@ -60,7 +50,6 @@ class UnpacRunner(context: Context) {
         }
         flush()
 
-        // Deduplicate by name (some firmwares emit the same partition twice)
         val unique = entries.distinctBy { it.name }
 
         if (!sawAnyField || unique.isEmpty()) {
@@ -74,20 +63,21 @@ class UnpacRunner(context: Context) {
 
     /**
      * Extracts [names] from [pacPath] into [outDir].
-     * Empty list = extract all. Blank / whitespace-only names are filtered out
-     * so a single selected partition never gets dropped because of a bad token.
+     * Empty list = extract all. Blank names are filtered out.
+     *
+     * unpac uses chdir(-d dir); the directory must exist and be empty.
+     * (Unlike pacextractor, which creates the dir itself and fails if it exists.)
      */
     fun extract(pacPath: String, outDir: File, names: List<String> = emptyList(), onLine: (String) -> Unit = {}): Int {
-        // See PacExtractorRunner.extractAll for why we don't outDir.mkdirs() here —
-        // same precaution in case unpac's own -d handling behaves the same way.
         outDir.deleteRecursively()
-        outDir.parentFile?.mkdirs()
+        // Must exist before unpac -d or the process fails with "chdir failed"
+        if (!outDir.mkdirs() && !outDir.isDirectory) {
+            throw NativeToolException("Could not create output directory: ${outDir.absolutePath}")
+        }
 
         val cleanNames = names.map { it.trim() }.filter { it.isNotEmpty() }
 
         val args = mutableListOf("-d", outDir.absolutePath, "extract", pacPath)
-        // Only append name args when the user actually selected a subset.
-        // Passing a single valid name must work; empty list means "all".
         if (cleanNames.isNotEmpty()) {
             args += cleanNames
         }
