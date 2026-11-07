@@ -9,32 +9,42 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import dev.classityreal.pext.native.ExtractionEngine
 import dev.classityreal.pext.native.NativeEntry
 import dev.classityreal.pext.ui.PacViewModel
+
+private val CardRadius = 20.dp
 
 private fun formatSize(bytes: Long): String {
     if (bytes <= 0) return "unknown size"
@@ -53,24 +63,65 @@ private fun formatSize(bytes: Long): String {
 fun PartitionListScreen(
     entries: List<NativeEntry>,
     viewModel: PacViewModel,
-    onExtractClick: () -> Unit
+    onExtractClick: () -> Unit,
+    onBack: () -> Unit = {}
 ) {
     val selected by viewModel.selectedNames.collectAsState()
     val engine by viewModel.engine.collectAsState()
+    val canExtract = engine == ExtractionEngine.PAC_EXTRACTOR || selected.isNotEmpty()
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Firmware contents") }) },
-        floatingActionButton = {
-            val label = if (engine == ExtractionEngine.PAC_EXTRACTOR) {
-                "Extract all (${entries.size})"
-            } else {
-                "Extract ${selected.size} partition${if (selected.size == 1) "" else "s"}"
-            }
-            ExtendedFloatingActionButton(
-                text = { Text(label) },
-                icon = { Icon(Icons.Filled.FileDownload, contentDescription = null) },
-                onClick = onExtractClick
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            TopAppBar(
+                title = { Text("Select partitions") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent
+                )
             )
+        },
+        bottomBar = {
+            SurfaceBar {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Text(
+                        if (engine == ExtractionEngine.UNPAC)
+                            "${selected.size} of ${entries.size} selected"
+                        else
+                            "All ${entries.size} partitions",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = onExtractClick,
+                        enabled = canExtract,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.onSurface,
+                            contentColor = MaterialTheme.colorScheme.surface
+                        )
+                    ) {
+                        Icon(Icons.Filled.FileDownload, null, Modifier.size(20.dp))
+                        Spacer(Modifier.size(8.dp))
+                        Text(
+                            if (engine == ExtractionEngine.PAC_EXTRACTOR)
+                                "Extract all"
+                            else
+                                "Extract ${selected.size}"
+                        )
+                    }
+                }
+            }
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
@@ -95,27 +146,37 @@ fun PartitionListScreen(
                 )
             }
 
-            // GridCells.Adaptive gives 1 column on phone-width screens (looks identical
-            // to the old plain list) and automatically adds columns as width grows past
-            // ~260dp per cell — i.e. a real grid on tablets, without a manual breakpoint.
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 260.dp),
+                columns = GridCells.Adaptive(minSize = 280.dp),
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(entries, key = { it.name }) { entry ->
-                    PartitionRow(
+                    PartitionCard(
                         entry = entry,
                         selectable = engine == ExtractionEngine.UNPAC,
                         checked = entry.name in selected,
-                        onCheckedChange = { viewModel.toggleEntry(entry.name) }
+                        onToggle = { viewModel.toggleEntry(entry.name) }
                     )
                 }
-                item(span = { GridItemSpan(maxLineSpan) }) { Spacer(Modifier.height(64.dp)) }
+                item(span = { GridItemSpan(maxLineSpan) }) { Spacer(Modifier.height(24.dp)) }
             }
         }
+    }
+}
+
+@Composable
+private fun SurfaceBar(content: @Composable () -> Unit) {
+    Card(
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        content()
     }
 }
 
@@ -130,32 +191,58 @@ private fun EngineSelector(engine: ExtractionEngine, onEngineChange: (Extraction
         FilterChip(
             selected = engine == ExtractionEngine.UNPAC,
             onClick = { onEngineChange(ExtractionEngine.UNPAC) },
-            label = { Text("unpac (choose partitions)") }
+            label = { Text("unpac") }
         )
         FilterChip(
             selected = engine == ExtractionEngine.PAC_EXTRACTOR,
             onClick = { onEngineChange(ExtractionEngine.PAC_EXTRACTOR) },
-            label = { Text("pacextractor (extract all)") }
+            label = { Text("pacextractor (all)") }
         )
     }
 }
 
 @Composable
-private fun PartitionRow(entry: NativeEntry, selectable: Boolean, checked: Boolean, onCheckedChange: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+private fun PartitionCard(
+    entry: NativeEntry,
+    selectable: Boolean,
+    checked: Boolean,
+    onToggle: () -> Unit
+) {
+    Card(
+        onClick = { if (selectable) onToggle() },
+        shape = RoundedCornerShape(CardRadius),
+        colors = CardDefaults.cardColors(
+            containerColor = if (checked && selectable)
+                MaterialTheme.colorScheme.surfaceContainerHighest
+            else
+                MaterialTheme.colorScheme.surfaceContainerHigh
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 4.dp),
+                .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (selectable) {
-                Checkbox(checked = checked, onCheckedChange = { onCheckedChange() })
+                Checkbox(checked = checked, onCheckedChange = { onToggle() })
             }
-            Column(modifier = Modifier.padding(start = if (selectable) 8.dp else 16.dp, top = 8.dp, bottom = 8.dp)) {
-                Text(entry.name.ifBlank { "(unnamed)" }, style = MaterialTheme.typography.bodyLarge)
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = if (selectable) 4.dp else 8.dp)
+            ) {
                 Text(
-                    formatSize(entry.size) + if (entry.id.isNotBlank()) " · ${entry.id}" else "",
+                    entry.name.ifBlank { "(unnamed)" },
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Text(
+                    buildString {
+                        append(formatSize(entry.size))
+                        if (entry.id.isNotBlank()) append(" · ").append(entry.id)
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
