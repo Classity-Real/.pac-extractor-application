@@ -2,20 +2,19 @@ package dev.classityreal.pext.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -24,8 +23,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -33,8 +30,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 data class SettingsState(
@@ -57,11 +56,10 @@ fun SettingsScreen(
     onUpdateClick: () -> Unit
 ) {
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.surface,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
-                modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars),
                 title = { Text("Settings") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -70,7 +68,9 @@ fun SettingsScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent,
-                    scrolledContainerColor = Color.Transparent
+                    scrolledContainerColor = Color.Transparent,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         }
@@ -84,42 +84,9 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                "Appearance",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
-            )
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(CardRadius),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-            ) {
-                ListItem(
-                    headlineContent = { Text("Follow system dark mode") },
-                    supportingContent = { Text("Off = always light; On = follow system") },
-                    leadingContent = { Icon(Icons.Filled.DarkMode, contentDescription = null) },
-                    trailingContent = {
-                        Switch(
-                            checked = state.preferDarkTheme != false,
-                            onCheckedChange = { follow ->
-                                onThemeModeChange(if (follow) null else false)
-                            }
-                        )
-                    },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                )
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            Text(
                 "Extraction",
                 style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -129,17 +96,31 @@ fun SettingsScreen(
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
-                ListItem(
-                    headlineContent = { Text("Prefer unpac (partition picker)") },
-                    supportingContent = { Text("Default engine for single-file flow") },
-                    trailingContent = {
-                        Switch(
-                            checked = state.preferUnpacEngine,
-                            onCheckedChange = onPreferUnpacChange
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text(
+                            "Prefer unpac",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
                         )
-                    },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                )
+                        Text(
+                            "Partition picker for a single .pac",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = state.preferUnpacEngine,
+                        onCheckedChange = onPreferUnpacChange
+                    )
+                }
             }
 
             Spacer(Modifier.height(8.dp))
@@ -147,8 +128,7 @@ fun SettingsScreen(
             Text(
                 "About",
                 style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -158,27 +138,37 @@ fun SettingsScreen(
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
-                ListItem(
-                    headlineContent = { Text("Version") },
-                    supportingContent = {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Filled.SystemUpdate,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                    Column(modifier = Modifier.weight(1f).padding(start = 16.dp)) {
+                        Text("Version", style = MaterialTheme.typography.titleMedium)
                         Text(
                             if (state.updateAvailable && state.latestVersion != null) {
-                                "${state.currentVersion} → ${state.latestVersion} available"
+                                "${state.currentVersion} → ${state.latestVersion}"
                             } else {
                                 state.currentVersion
-                            }
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    },
-                    leadingContent = { Icon(Icons.Filled.SystemUpdate, contentDescription = null) },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                )
+                    }
+                }
             }
 
             if (state.updateAvailable) {
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(4.dp))
                 Button(
                     onClick = onUpdateClick,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().widthIn(min = 120.dp),
                     shape = RoundedCornerShape(20.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.onSurface,
@@ -187,9 +177,9 @@ fun SettingsScreen(
                 ) { Text("Update") }
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(12.dp))
             Text(
-                "Monochrome theme is fixed. Update opens the latest GitHub release when available.",
+                "Monochrome theme is fixed.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
