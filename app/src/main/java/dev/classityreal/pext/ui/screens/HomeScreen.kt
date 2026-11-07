@@ -3,14 +3,17 @@ package dev.classityreal.pext.ui.screens
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -46,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 private val CardRadius = 28.dp
+private val TabletBreakpoint = 600.dp
 
 data class CreditEntry(val name: String, val role: String, val icon: ImageVector)
 
@@ -67,155 +71,179 @@ fun HomeScreen(
     latestVersion: String? = null,
     onUpdateClick: () -> Unit = {}
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val twoColumn = maxWidth >= TabletBreakpoint
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                IconButton(onClick = onOpenSettings) {
+                    Icon(
+                        Icons.Filled.Settings,
+                        contentDescription = "Settings",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            BrandBannerCard()
+
+            if (updateAvailable && latestVersion != null) {
+                Spacer(Modifier.height(12.dp))
+                UpdateActionCard(
+                    currentVersion = currentVersion,
+                    latestVersion = latestVersion,
+                    onUpdateClick = onUpdateClick
+                )
+            }
+
+            Spacer(Modifier.height(20.dp))
+
+            if (twoColumn) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        ActionsColumn(
+                            onPickFile = onPickFile,
+                            onPickFromList = onPickFromList
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        CreditsColumn()
+                    }
+                }
+            } else {
+                ActionsColumn(onPickFile = onPickFile, onPickFromList = onPickFromList)
+                Spacer(Modifier.height(28.dp))
+                CreditsColumn()
+            }
+
+            Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+@Composable
+private fun ActionsColumn(onPickFile: () -> Unit, onPickFromList: () -> Unit) {
+    Text(
+        "Extract Unisoc .pac firmware",
+        style = MaterialTheme.typography.headlineSmall,
+        color = MaterialTheme.colorScheme.onBackground,
+        fontWeight = FontWeight.Medium
+    )
+    Spacer(Modifier.height(8.dp))
+    Text(
+        "Pick one .pac file to inspect and choose partitions, or select several for batch extract.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Spacer(Modifier.height(20.dp))
+
+    Card(
+        onClick = onPickFile,
+        shape = RoundedCornerShape(CardRadius),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 20.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onOpenSettings) {
-                Icon(
-                    Icons.Filled.Settings,
-                    contentDescription = "Settings",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+            Icon(Icons.Filled.FolderOpen, null, Modifier.size(28.dp), MaterialTheme.colorScheme.onSurface)
+            Spacer(Modifier.size(16.dp))
+            Column {
+                Text("Select a file", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Inspect partitions and extract a subset",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
+    }
 
-        BrandBannerCard()
+    Spacer(Modifier.height(12.dp))
 
-        if (updateAvailable && latestVersion != null) {
-            Spacer(Modifier.height(12.dp))
-            UpdateActionCard(
-                currentVersion = currentVersion,
-                latestVersion = latestVersion,
-                onUpdateClick = onUpdateClick
+    Card(
+        onClick = onPickFromList,
+        shape = RoundedCornerShape(CardRadius),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Outlined.Inventory2, null, Modifier.size(28.dp), MaterialTheme.colorScheme.onSurface)
+            Spacer(Modifier.size(16.dp))
+            Column {
+                Text("Select from list", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Batch-extract several .pac files",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CreditsColumn() {
+    Text(
+        "Credits on this Tool",
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+    )
+
+    Card(
+        shape = RoundedCornerShape(CardRadius),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Credits.forEachIndexed { index, credit ->
+            if (index > 0) {
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+            }
+            ListItem(
+                headlineContent = { Text(credit.name) },
+                supportingContent = { Text(credit.role) },
+                leadingContent = {
+                    Icon(
+                        credit.icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
             )
         }
-
-        Spacer(Modifier.height(20.dp))
-
-        Text(
-            "Extract Unisoc .pac firmware",
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onBackground,
-            textAlign = TextAlign.Center,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "Pick one .pac file to inspect and choose partitions, or select several for batch extract.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(Modifier.height(24.dp))
-
-        Card(
-            onClick = onPickFile,
-            shape = RoundedCornerShape(CardRadius),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 20.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Filled.FolderOpen, null, Modifier.size(28.dp), MaterialTheme.colorScheme.onSurface)
-                Spacer(Modifier.size(16.dp))
-                Column {
-                    Text("Select a file", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "Inspect partitions and extract a subset",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-
-        Spacer(Modifier.height(12.dp))
-
-        Card(
-            onClick = onPickFromList,
-            shape = RoundedCornerShape(CardRadius),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 20.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Outlined.Inventory2, null, Modifier.size(28.dp), MaterialTheme.colorScheme.onSurface)
-                Spacer(Modifier.size(16.dp))
-                Column {
-                    Text("Select from list", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "Batch-extract several .pac files",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-
-        Spacer(Modifier.height(28.dp))
-
-        Text(
-            "Credits on this Tool",
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
-        )
-
-        Card(
-            shape = RoundedCornerShape(CardRadius),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Credits.forEachIndexed { index, credit ->
-                if (index > 0) {
-                    HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                }
-                ListItem(
-                    headlineContent = { Text(credit.name) },
-                    supportingContent = { Text(credit.role) },
-                    leadingContent = {
-                        Icon(
-                            credit.icon,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
-                    },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                )
-            }
-        }
-
-        Spacer(Modifier.height(24.dp))
     }
 }
 
