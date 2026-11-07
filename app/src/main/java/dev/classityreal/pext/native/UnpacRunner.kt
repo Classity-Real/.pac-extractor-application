@@ -34,7 +34,10 @@ class UnpacRunner(context: Context) {
             if (n.isNotEmpty()) {
                 entries += NativeEntry(n, pendingId, pendingType, pendingSize)
             }
-            pendingName = null; pendingId = ""; pendingType = 0; pendingSize = 0L
+            pendingName = null
+            pendingId = ""
+            pendingType = 0
+            pendingSize = 0L
         }
 
         for (line in lines) {
@@ -44,9 +47,18 @@ class UnpacRunner(context: Context) {
                 pendingName = name
                 sawAnyField = true
             }
-            idRe.find(line)?.let { pendingId = it.groupValues[1]; sawAnyField = true }
-            typeRe.find(line)?.let { pendingType = it.groupValues[1].toIntOrNull() ?: 0; sawAnyField = true }
-            sizeRe.find(line)?.let { pendingSize = it.groupValues[1].toLongOrNull(16) ?: 0L; sawAnyField = true }
+            idRe.find(line)?.let {
+                pendingId = it.groupValues[1]
+                sawAnyField = true
+            }
+            typeRe.find(line)?.let {
+                pendingType = it.groupValues[1].toIntOrNull() ?: 0
+                sawAnyField = true
+            }
+            sizeRe.find(line)?.let {
+                pendingSize = it.groupValues[1].toLongOrNull(16) ?: 0L
+                sawAnyField = true
+            }
         }
         flush()
 
@@ -68,7 +80,12 @@ class UnpacRunner(context: Context) {
      * unpac uses chdir(-d dir); the directory must exist and be empty.
      * (Unlike pacextractor, which creates the dir itself and fails if it exists.)
      */
-    fun extract(pacPath: String, outDir: File, names: List<String> = emptyList(), onLine: (String) -> Unit = {}): Int {
+    fun extract(
+        pacPath: String,
+        outDir: File,
+        names: List<String> = emptyList(),
+        onLine: (String) -> Unit = {}
+    ): Int {
         outDir.deleteRecursively()
         // Must exist before unpac -d or the process fails with "chdir failed"
         if (!outDir.mkdirs() && !outDir.isDirectory) {
@@ -84,11 +101,11 @@ class UnpacRunner(context: Context) {
 
         val (exitCode, lines) = tools.run(binary, args, onLine)
         if (exitCode != 0) {
+            val selectedHint = if (cleanNames.size == 1) " (selected: ${cleanNames.first()})" else ""
             throw NativeToolException(
-                "unpac extract exited with code $exitCode" +
-                    if (cleanNames.size == 1) " (selected: ${cleanNames.first()})" else "",
+                "unpac extract exited with code $exitCode$selectedHint",
                 lines.joinToString("\n")
-n            )
+            )
         }
         return exitCode
     }
