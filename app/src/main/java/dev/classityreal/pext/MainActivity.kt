@@ -205,6 +205,7 @@ class MainActivity : ComponentActivity() {
                                         onBack = { viewModel.closeSettings() },
                                         onThemeModeChange = viewModel::setThemeMode,
                                         onPreferUnpacChange = viewModel::setPreferUnpac,
+                                        onExperimentalChange = viewModel::setExperimental,
                                         onUpdateClick = viewModel::openUpdate
                                     )
                                 }
@@ -467,6 +468,7 @@ class MainActivity : ComponentActivity() {
                         onBack = { viewModel.closeSettings() },
                         onThemeModeChange = viewModel::setThemeMode,
                         onPreferUnpacChange = viewModel::setPreferUnpac,
+                        onExperimentalChange = viewModel::setExperimental,
                         onUpdateClick = viewModel::openUpdate
                     )
                 }
