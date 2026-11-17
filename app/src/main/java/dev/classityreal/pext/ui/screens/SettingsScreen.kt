@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 data class SettingsState(
     val preferDarkTheme: Boolean? = null,
     val preferUnpacEngine: Boolean = true,
+    val experimentalSteps: Boolean = false,
     val currentVersion: String = "0.1.0",
     val latestVersion: String? = null,
     val updateAvailable: Boolean = false
@@ -53,6 +54,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onThemeModeChange: (Boolean?) -> Unit,
     onPreferUnpacChange: (Boolean) -> Unit,
+    onExperimentalChange: (Boolean) -> Unit,
     onUpdateClick: () -> Unit
 ) {
     Scaffold(
@@ -126,6 +128,46 @@ fun SettingsScreen(
             Spacer(Modifier.height(8.dp))
 
             Text(
+                "Experimental",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(CardRadius),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text(
+                            "Experimental steps",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            "Off uses the locked extract config. On runs the editable step list. This app still only extracts files. It does not unlock the bootloader or flash.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = state.experimentalSteps,
+                        onCheckedChange = onExperimentalChange
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            Text(
                 "About",
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -179,7 +221,7 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(12.dp))
             Text(
-                "Monochrome theme is fixed.",
+                "Monochrome theme is fixed. Flashing an extracted image on an unlocked phone can brick it. This tool will not do that for you.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
