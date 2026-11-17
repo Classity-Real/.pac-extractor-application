@@ -11,6 +11,8 @@ import dev.classityreal.pext.native.NativeEntry
 import dev.classityreal.pext.native.NativeToolException
 import dev.classityreal.pext.native.PacExtractorRunner
 import dev.classityreal.pext.native.SafBridge
+import dev.classityreal.pext.locked.ExtractSteps
+import dev.classityreal.pext.locked.LockedConfig
 import dev.classityreal.pext.native.UnpacRunner
 import dev.classityreal.pext.ui.screens.ConsoleLevel
 import dev.classityreal.pext.ui.screens.ConsoleLine
@@ -84,6 +86,7 @@ class PacViewModel(app: Application) : AndroidViewModel(app) {
                 else -> null
             },
             preferUnpacEngine = prefs.getBoolean("prefer_unpac", true),
+            experimentalSteps = prefs.getBoolean("experimental_steps", false),
             currentVersion = runCatching {
                 @Suppress("DEPRECATION")
                 app.packageManager.getPackageInfo(app.packageName, 0).versionName ?: "0.1.0"
@@ -229,6 +232,33 @@ class PacViewModel(app: Application) : AndroidViewModel(app) {
         _settings.update { it.copy(preferDarkTheme = dark) }
     }
 
+    fun setExperimental(on: Boolean) {
+        prefs.edit().putBoolean("experimental_steps", on).apply()
+        _settings.update { it.copy(experimentalSteps = on) }
+        log(
+            if (on) ConsoleLevel.WARN else ConsoleLevel.INFO,
+            if (on) "Experimental steps on. This app still does not flash or unlock."
+            else "Experimental steps off. Locked configuration only."
+        )
+    }
+
+    private fun guardPipeline(): Boolean {
+        val experimental = _settings.value.experimentalSteps
+        val steps = if (experimental) ExtractSteps.current else listOf("copy-in", "list", "extract", "copy-out")
+        val stepsOk = runCatching { LockedConfig.assertSteps(steps) }.isSuccess
+        val lockedOk = experimental || LockedConfig.integrityOk()
+        if (!stepsOk || !lockedOk) {
+            _screen.value = Screen.Error(
+                "Locked configuration was changed",
+                "Extraction is blocked. Enable Experimental in Settings only if you accept the risk. This app still only extracts files. It will not unlock a bootloader or flash."
+            )
+            log(ConsoleLevel.ERR, "Blocked: locked config or step list is not allowed")
+            return false
+        }
+        if (experimental) log(ConsoleLevel.WARN, "Experimental steps: ${steps.joinToString(" -> ")}")
+        return true
+    }
+
     fun setPreferUnpac(v: Boolean) {
         prefs.edit().putBoolean("prefer_unpac", v).apply()
         _settings.update { it.copy(preferUnpacEngine = v) }
@@ -283,8 +313,14 @@ class PacViewModel(app: Application) : AndroidViewModel(app) {
         val names = _selectedNames.value.map { it.trim() }.filter { it.isNotEmpty() }
         val chosenEngine = _engine.value
 
+        if (!guardPipeline()) return
         if (chosenEngine == ExtractionEngine.UNPAC && names.isEmpty()) {
             _screen.value = Screen.Error("No partitions selected")
+            return
+        }
+        val unsafe = names.filter { !LockedConfig.isSafePartitionName(it) }
+        if (unsafe.isNotEmpty()) {
+            _screen.value = Screen.Error("Refused partition name", unsafe.joinToString())
             return
         }
 
@@ -347,6 +383,7 @@ class PacViewModel(app: Application) : AndroidViewModel(app) {
     fun freeSpaceBytes(): Long = SafBridge.internalStorageFreeBytes()
 
     fun startBatchExtraction(files: List<PickedPac>, outputTreeUri: Uri) {
+        if (!guardPipeline()) return
         val app = getApplication<Application>()
         log(ConsoleLevel.INFO, "Batch extract ${files.size} files…")
         viewModelScope.launch {
